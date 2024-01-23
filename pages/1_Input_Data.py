@@ -1,0 +1,166 @@
+import streamlit as st
+from streamlit import session_state as ss
+import pandas as pd
+import io
+
+st.set_page_config(
+    page_title="Upload Raw Data",
+    layout="wide",
+    initial_sidebar_state="auto",
+    page_icon='📊'
+)
+
+def add_logo():
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebarNav"] {
+                background-image: url(https://kmkconsultinginc.com/wp-content/uploads/2020/12/KMK-Logo.png);
+                background-repeat: no-repeat;
+                padding-top: 120px;
+                background-position: 20px 20px;
+            }
+            [data-testid="stSidebarNav"]::before {
+                content: "Sections";
+                margin-left: 20px;
+                margin-top: 20px;
+                font-size: 30px;
+                position: relative;
+                top: 100px;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+add_logo()
+
+if 'download_format_button' not in ss:
+    ss.download_format_button = False
+
+#code to download excel - 
+def download_excel_format():
+    
+    list_of_weight_names.insert(0, 'Territory_Number')
+    list_of_weight_names.append('NATION_GOAL')
+    excel_format_df = pd.DataFrame(columns = list_of_weight_names)
+
+
+    buffer = io.BytesIO()
+    # Create a Pandas Excel writer using XlsxWriter as the engine.
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        # Write each dataframe to a different worksheet.
+        excel_format_df.to_excel(writer, sheet_name='Sheet1',index=False)
+        # Close the Pandas Excel writer and output the Excel file to the buffer
+        writer.close()
+
+        st.download_button(
+            label="Download Excel format",
+            data=buffer,
+            file_name="GST_input.xlsx",
+            mime="application/vnd.ms-excel"
+        )
+
+if 'selected_option' not in ss:
+    ss.selected_option = None
+
+st.markdown(
+    "<h1 style='text-align: center;'>Goal Setting Simulation Tool</h1>", 
+    unsafe_allow_html=True
+)
+
+st.markdown("<h4 style='text-align: left;'>The Following tool can be used to find the best possible combination of weights supported \
+             by key metrics for the purpose of goal setting</h4>",unsafe_allow_html=True)
+#st.markdown("---")
+
+
+with st.expander("Get Help on Format ☝️"):
+    st.write("Enter the number of Weight Metrics you have in your project \
+                followed by the their names, the download button will give you a blank excel to populate your data in !")
+
+    options = list(range(1, 11))
+    ss.selected_option = st.selectbox('How Many Metrics Do you have ?', options)
+    if ss.selected_option != 1:
+        list_of_weight_names = []
+        for i in range(ss.selected_option):
+            # Create a text input box for each metric
+            weight_name = st.text_input(f'Metric {i+1}', '')
+            list_of_weight_names.append(weight_name)
+        
+        #for download - 
+        list_of_weight_names.insert(0, 'Territory_Number')
+        list_of_weight_names.append('NATION_GOAL')
+        excel_format_df = pd.DataFrame(columns = list_of_weight_names)
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            excel_format_df.to_excel(writer, sheet_name='Sheet1',index=False)
+            writer.close()
+        
+        st.download_button("Download Excel format",
+                help="Click this to download the format for the raw data excel you must upload",
+                data=buffer,
+                file_name="GST_input.xlsx",
+                mime="application/vnd.ms-excel")
+
+
+st.markdown("---")
+st.subheader("Upload Raw Data ")
+st.write("Please Upload raw data the correct format for smooth processing")
+
+if 'ex_up' not in ss:
+    ss.ex_up = False
+if 'file' not in ss:
+    ss.file = None
+
+
+#To facilitate upload of excel file - 
+uploaded_file = st.file_uploader("Choose an Excel file", type='xlsx')
+
+if uploaded_file is not None:
+    ss.ex_up = True
+    ss['file'] = uploaded_file
+
+st.markdown("---")
+if ss.ex_up:
+    data = pd.read_excel(ss['file'])
+    nation_goal_value = data.iloc[0,-1]
+    st.markdown(f"<h5 style='text-align: center;'>National Level Goal : {nation_goal_value:,}</h5>", unsafe_allow_html=True)
+    data.drop(columns=['NATION_GOAL'],inplace=True)
+
+    #Number of metrics count here -
+    list_of_metrics = list(set(data.columns) - {'Territory_Number','Actuals'})
+    list_of_metrics.sort()
+    number_of_metrics = len(list_of_metrics)
+
+    ###################################################
+
+    st.subheader("Received Raw Data:")
+    st.dataframe(data,height= 180,hide_index=True)
+
+    st.markdown("---")
+    st.markdown(f"<h5 style='text-align: left;'>Validations : </h5>", unsafe_allow_html=True)
+
+    if data.isnull().values.any():
+        print("Null Values Detected !")
+    else:
+        st.write("No Null Values found :smile:")
+
+    st.markdown("---")
+
+    if 'submit_1' not in ss:
+        ss.submit_1 = False
+    
+    if "list_of_metrics" not in ss:
+        ss['list_of_metrics'] = None
+    if "number_of_metrics" not in ss:
+        ss['number_of_metrics'] = None
+    
+    if st.button("Submit Excel"):
+        ss['list_of_metrics'] = list_of_metrics
+        ss['number_of_metrics'] = number_of_metrics
+        ss['nation_goal_value'] = nation_goal_value
+        ss['excel_file_df'] = data
+        st.write(f"Submited Data ! | Metrics :{ss['list_of_metrics']} | Count :{ss['number_of_metrics']}") #print ss vars or local vars ?
+
+
+#https://stackoverflow.com/questions/73251012/put-logo-and-title-above-on-top-of-page-navigation-in-sidebar-of-streamlit-multi
