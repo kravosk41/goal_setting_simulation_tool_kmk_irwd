@@ -79,6 +79,11 @@ def process_1():
     
     progress_bar.empty()
 
+    if comb_pd.shape[0] == 0: #This means that there are no combinations that sum up to 100
+        ss.pro_com = False
+        st.write("There were no combinations that sum up to 100% ! 🙁 ")
+        st.markdown("__(Try again with some different constraints, you might be really close)__")
+        return #exiting out of process_1()
     
     #saving result - May not be necessary :
     comb_pd.to_parquet('comb_pd.parquet')
@@ -191,11 +196,12 @@ if ss.start_filter:
         #Start Processing Data
         process_1()
 
-        #Then Show Results
-        show_res_1()
-
-        #Open Downloads Section -
-        ss.open_download_sec = True
+        #Check if you actually got valid results to show results for 
+        if ss.pro_com:
+            #Then Show Results
+            show_res_1()
+            #Open Downloads Section -
+            ss.open_download_sec = True
 
     #when calculation has already been done - 
     elif ('submit_2' in ss) and (ss.submit_2 and ss.items_list) and ss.pro_com:
@@ -212,7 +218,7 @@ if ss.start_filter:
     
     
 #Downloads Section - #FUTURE TO DO : Explore ss.cache_data, there seems to be a delay for this to populate
-if ss.open_download_sec:
+if ss.open_download_sec and ss.pro_com:
 
     st.markdown("---")
     c4,c5 = st.columns(2)
