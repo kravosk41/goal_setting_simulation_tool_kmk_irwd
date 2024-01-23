@@ -7,3 +7,5 @@
 #To ignore any excel files in the rep -
 /*.xlsx
 
+#To ignore testing ipynb file
+process_unit_fix.ipynb
