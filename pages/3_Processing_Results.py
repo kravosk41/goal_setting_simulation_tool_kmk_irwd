@@ -157,32 +157,35 @@ def process_1():
 def show_res_1():
     #If results are calculated show the following -
     
-    #converting pandas dataframe to polars for faster processing -
-    comb_pl = pl.from_pandas(ss['objective_df_pd'])
-
-    #Filtering and sorting function for df
-    def get_sort_first(metric,order = False):
-        comb_pl_sorted = comb_pl.sort(by=metric,descending=order)
-        column_names = comb_pl_sorted.columns[:10]  # As there are 10 , Percentage type columns | This can vary in the future
-
-        #to convert back to % values for readablity of user.
-        for column in column_names:
-            comb_pl_sorted = comb_pl_sorted.with_columns((pl.col(column) * 100).alias(column))
-
-        return_df_text = "row_with_lowest_"+metric
-        globals()[return_df_text] = comb_pl_sorted.head(1)
-        
-        return(globals()[return_df_text])
-    
-    #Calling Functions to Fetch Row
-    get_sort_first('Standard_Deviation')
-    get_sort_first('MSE')
-    get_sort_first('CAT_C',True)
-
-    #Now I can Ideally print this , but for the sake of testing I only wanna print the whole DF
-
+    #Removed Polars Sorting API - Not needed for now , Manually Sorting and keeping top 5
     st.subheader("Objective Result - ")
-    st.dataframe(ss['objective_df_pd'],height= 180,hide_index=True)
+    # st.dataframe(ss['objective_df_pd'],height= 180,hide_index=True)
+    ss['style_df_main'] = ss['objective_df_pd'].copy() #Creating a Separate Copy Just for printing 
+    #Applying Formatting Fixes -
+    for col in ['Min_Att','Max_Att','Avg_Att']:
+        ss['style_df_main'][col] = ss['style_df_main'][col].round(2)
+        ss['style_df_main'][col] = ss['style_df_main'][col].apply(lambda x: f'{x} %')
+    for col in ss['list_of_metrics']:
+        ss['style_df_main'][col] = (ss['style_df_main'][col]*100).round(2)
+        ss['style_df_main'][col] = ss['style_df_main'][col].apply(lambda x: f'{x} %')
+    
+    ss['style_df_main']['Standard_Deviation'] = ss['style_df_main']['Standard_Deviation'].round(3)
+    ss['style_df_main']['MSE'] = ss['style_df_main']['MSE'].round(3)
+    #### END OF FORMAT FIXES ###
+    st.dataframe(ss['style_df_main'],height= 180,hide_index=True)
+    with st.expander("Get Help on Column Names ☝️"):
+        st.markdown("""
+        ### Legend
+        | Column Name | Value |
+        | --- | --- |
+        | CAT_A | 0% to 97% |
+        | CAT_B | 97% to 99% |
+        | CAT_C | 99% to 100% |
+        | CAT_D | 100% to 103% |
+        | CAT_E | 103% to ∞ |
+        | Total | B + C + D |
+        """)
+
 
 #After showing full data
 #sort data by multiple columns and show top five [std LH, total and cat_c HL]    
@@ -230,10 +233,10 @@ if ss.open_download_sec and ss.pro_com:
         # Write each dataframe to a different worksheet.
         ss['objective_df_pd'].to_excel(writer, sheet_name='Sheet1',index=False)
         # Close the Pandas Excel writer and output the Excel file to the buffer
-        writer.close()
+        #writer.close()
 
         c5.download_button(
-            label="Download Excel worksheets",
+            label="Download Excel worksheet",
             data=buffer,
             file_name="GST_objective.xlsx",
             mime="application/vnd.ms-excel"

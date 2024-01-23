@@ -56,9 +56,8 @@ if 'start_filter' not in ss: #tracks button click status
     ss.start_filter = False
 if 'ex_up' not in ss:
     ss.ex_up = False
-
-
-
+if 'pro_com' not in ss: #tracks if results were done processing or not
+    ss.pro_com = False
 
 
 st.markdown("<h1 style='text-align: center;'>Goal Setting Weight Ranges</h1>", unsafe_allow_html=True)
@@ -158,5 +157,6 @@ if ss.ex_up and ss.list_of_metrics:
                 ss.submit_2 = True
                 ss['items_list'] = items_list
                 ss['comb_counter'] = comb_counter
-                st.write(f"{comb_counter} combinations ready to filter and process !")
+                st.write(f"{comb_counter:,} combinations ready to filter and process !")
                 ss.start_filter = False #to prevent auto rerun of submission of new numbers !
+                ss.pro_com = False # To make sure process reruns if already run before
