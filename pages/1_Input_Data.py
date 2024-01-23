@@ -38,29 +38,6 @@ add_logo()
 if 'download_format_button' not in ss:
     ss.download_format_button = False
 
-#code to download excel - 
-def download_excel_format():
-    
-    list_of_weight_names.insert(0, 'Territory_Number')
-    list_of_weight_names.append('NATION_GOAL')
-    excel_format_df = pd.DataFrame(columns = list_of_weight_names)
-
-
-    buffer = io.BytesIO()
-    # Create a Pandas Excel writer using XlsxWriter as the engine.
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        # Write each dataframe to a different worksheet.
-        excel_format_df.to_excel(writer, sheet_name='Sheet1',index=False)
-        # Close the Pandas Excel writer and output the Excel file to the buffer
-        writer.close()
-
-        st.download_button(
-            label="Download Excel format",
-            data=buffer,
-            file_name="GST_input.xlsx",
-            mime="application/vnd.ms-excel"
-        )
-
 if 'selected_option' not in ss:
     ss.selected_option = None
 
@@ -89,12 +66,11 @@ with st.expander("Get Help on Format ☝️"):
         
         #for download - 
         list_of_weight_names.insert(0, 'Territory_Number')
-        list_of_weight_names.append('NATION_GOAL')
+        list_of_weight_names.extend(['Actuals','NATION_GOAL'])
         excel_format_df = pd.DataFrame(columns = list_of_weight_names)
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             excel_format_df.to_excel(writer, sheet_name='Sheet1',index=False)
-            writer.close()
         
         st.download_button("Download Excel format",
                 help="Click this to download the format for the raw data excel you must upload",
