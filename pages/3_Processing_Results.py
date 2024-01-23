@@ -8,6 +8,7 @@ import time
 import itertools
 from stqdm import stqdm
 import io
+import matplotlib.pyplot as plt
 
 st.set_page_config(
     page_title="GST-Processing",
@@ -154,6 +155,30 @@ def process_1():
     #Processing Complete -
     ss.pro_com = True
 
+def visuals_1(): #to encapsulate all graphical work - # Future TO DO : Explore other libs | Cache results
+    # to get top 5 contenders - 
+    top_five_df = ss['objective_df_pd'].sort_values(by = ['Standard_Deviation','Total','CAT_C'],ascending=[True,False,False],ignore_index=True)
+    top_five_df = top_five_df.head(5).copy()
+    top_five_df['Comb_Name'] = ['Comb ' + str(i) for i in range(1, len(top_five_df) + 1)]
+
+    # Bar Graph 1 -
+    bar_df = top_five_df[['Comb_Name','CAT_A', 'CAT_B', 'CAT_C', 'CAT_D', 'CAT_E']]
+    bar_df.plot(x='Comb_Name', kind='bar')
+    plt.xlabel('Categories')
+    plt.ylabel('Count of Territories')
+    plt.title('Comparison of Categories for Top 5 Combinations with Lowest Standard Deviation')
+    plt.xticks(rotation=15)  # for labels tilted at 45 degrees
+    plt.legend(['0 to 97%','97% to 99%','99% to 100%','100% to 103%','103% to ∞'],
+            bbox_to_anchor=(1.05, 1), 
+            loc='upper left',
+            title='Percentage Bins',
+            frameon=True,shadow=True,fancybox=True,edgecolor='black',facecolor='white',fontsize='medium')
+    plt.style.use('ggplot')
+    st.pyplot(plt.gcf())
+
+    #Function to get back terr level data -
+
+
 def show_res_1():
     #If results are calculated show the following -
     
@@ -161,6 +186,8 @@ def show_res_1():
     st.subheader("Objective Result - ")
     # st.dataframe(ss['objective_df_pd'],height= 180,hide_index=True)
     ss['style_df_main'] = ss['objective_df_pd'].copy() #Creating a Separate Copy Just for printing 
+    #sorting it by required order - 
+    ss['style_df_main'].sort_values(by = ['Standard_Deviation','Total','CAT_C'],ascending=[True,False,False],ignore_index=True,inplace=True)
     #Applying Formatting Fixes -
     for col in ['Min_Att','Max_Att','Avg_Att']:
         ss['style_df_main'][col] = ss['style_df_main'][col].round(2)
@@ -185,6 +212,10 @@ def show_res_1():
         | CAT_E | 103% to ∞ |
         | Total | B + C + D |
         """)
+    
+    st.markdown("---")
+    st.markdown("<h2 style='text-align: center;'>Result Visualization</h2>", unsafe_allow_html=True)
+    visuals_1() #call graph maker
 
 
 #After showing full data
