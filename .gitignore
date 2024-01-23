@@ -1,0 +1,9 @@
+#To Ignore python environment -
+.venv/
+
+#To ignore any output parquet files -
+/*.parquet
+
+#To ignore any excel files in the rep -
+/*.xlsx
+
