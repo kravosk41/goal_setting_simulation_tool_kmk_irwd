@@ -59,6 +59,50 @@ if c2.button("Start Processing"):
 
 st.markdown("---")
 
+# Define the boundaries of the bins
+bins = [0, 97, 99.001, 101.001, 103, 999]
+
+# Define the labels for the bins
+labels = ['a', 'b', 'c', 'd', 'e']
+
+def objective(*metric_weights):
+    comp_weights = {}
+    #populating comp_weights -
+    for weight_name,weight_value in zip(ss['list_of_metrics'],metric_weights):
+        comp_weights[weight_name] = weight_value
+    
+    #populating comp_volumes -
+    comp_vols = {}
+    for x,y in comp_weights.items():
+        comp_vols[x] = ss['nation_goal_value'] * y
+    
+    work_df = ss['excel_file_df'].copy()
+    computation_cols = ss['list_of_metrics']
+    for col in computation_cols:
+        work_df[str(col+'_w')] = (work_df[col] / work_df[col].sum()) * comp_vols[col]
+    
+    work_df['Final_Quota'] = sum(work_df[col + '_w'] for col in computation_cols)
+    work_df['Attainment'] = (work_df['Actuals'] / work_df['Final_Quota']) * 100
+
+    work_df['Att_Classifier'] = pd.cut(work_df['Attainment'], bins=bins, labels=labels)
+    
+    Att_Cat_Counts = work_df['Att_Classifier'].value_counts().to_dict()
+    Att_Cat_Counts = dict(sorted(Att_Cat_Counts.items(), key=lambda item: item[0]))
+
+    return_list = [
+        work_df['Attainment'].std(),
+        ((work_df['Attainment'] - 100)**2).sum()/work_df.shape[0],
+        Att_Cat_Counts,
+        work_df['Attainment'].min(),
+        work_df['Attainment'].max(),
+        work_df['Attainment'].mean()
+    ]
+
+    #For QC Inspection
+    objective.work_df = work_df
+
+    return(return_list)
+
 def process_1():
     comb_pd = pd.DataFrame()
     chunk_size = 1000000
@@ -88,51 +132,6 @@ def process_1():
     
     #saving result - May not be necessary :
     comb_pd.to_parquet('comb_pd.parquet')
-
-    # Define the boundaries of the bins
-    bins = [0, 97, 99.001, 101.001, 103, 999]
-
-    # Define the labels for the bins
-    labels = ['a', 'b', 'c', 'd', 'e']
-
-
-    def objective(*metric_weights):
-        comp_weights = {}
-        #populating comp_weights -
-        for weight_name,weight_value in zip(ss['list_of_metrics'],metric_weights):
-            comp_weights[weight_name] = weight_value
-        
-        #populating comp_volumes -
-        comp_vols = {}
-        for x,y in comp_weights.items():
-            comp_vols[x] = ss['nation_goal_value'] * y
-        
-        work_df = ss['excel_file_df'].copy()
-        computation_cols = ss['list_of_metrics']
-        for col in computation_cols:
-            work_df[str(col+'_w')] = (work_df[col] / work_df[col].sum()) * comp_vols[col]
-        
-        work_df['Final_Quota'] = sum(work_df[col + '_w'] for col in computation_cols)
-        work_df['Attainment'] = (work_df['Actuals'] / work_df['Final_Quota']) * 100
-
-        work_df['Att_Classifier'] = pd.cut(work_df['Attainment'], bins=bins, labels=labels)
-        
-        Att_Cat_Counts = work_df['Att_Classifier'].value_counts().to_dict()
-        Att_Cat_Counts = dict(sorted(Att_Cat_Counts.items(), key=lambda item: item[0]))
-
-        return_list = [
-            work_df['Attainment'].std(),
-            ((work_df['Attainment'] - 100)**2).sum()/work_df.shape[0],
-            Att_Cat_Counts,
-            work_df['Attainment'].min(),
-            work_df['Attainment'].max(),
-            work_df['Attainment'].mean()
-        ]
-
-        #For QC Inspection
-        objective.work_df = work_df
-
-        return(return_list)
     
     def apply_objective(row):
         result = objective(*row)
@@ -152,6 +151,22 @@ def process_1():
     ss['objective_df_pd'] = comb_pd1 
     ss['actual_combinations'] = comb_pd.shape[0]
 
+    #Porting over calc work from res and vis functions -
+    
+    ss['style_df_main'] = ss['objective_df_pd'].copy() #Creating a Separate Copy Just for printing 
+    #sorting it by required order - 
+    ss['style_df_main'].sort_values(by = ['Standard_Deviation','Total','CAT_C'],ascending=[True,False,False],ignore_index=True,inplace=True)
+    #Applying Formatting Fixes -
+    for col in ['Min_Att','Max_Att','Avg_Att']:
+        ss['style_df_main'][col] = ss['style_df_main'][col].round(2)
+        ss['style_df_main'][col] = ss['style_df_main'][col].apply(lambda x: f'{x} %')
+    for col in ss['list_of_metrics']:
+        ss['style_df_main'][col] = (ss['style_df_main'][col]*100).round(2)
+        ss['style_df_main'][col] = ss['style_df_main'][col].apply(lambda x: f'{x} %')
+    
+    ss['style_df_main']['Standard_Deviation'] = ss['style_df_main']['Standard_Deviation'].round(3)
+    ss['style_df_main']['MSE'] = ss['style_df_main']['MSE'].round(3)
+    #### END OF FORMAT FIXES ###
     #Processing Complete -
     ss.pro_com = True
 
@@ -161,6 +176,16 @@ def visuals_1(): #to encapsulate all graphical work - # Future TO DO : Explore o
     top_five_df = top_five_df.head(5).copy()
     top_five_df['Comb_Name'] = ['Comb ' + str(i) for i in range(1, len(top_five_df) + 1)]
 
+    #Function to get back terr level data -
+    def get_terr_level_df(row):
+        objective(*row)
+        return(objective.work_df)
+
+    for i in range(len(top_five_df)):
+        argument_row = top_five_df[['Comb_Name'] + ss['list_of_metrics']].iloc[i]
+        new_terr_df_name = str(argument_row.iloc[0]).replace(' ','_') + '_terr_df' #replaced space with _ 
+        globals()[new_terr_df_name] = get_terr_level_df(argument_row[1:])
+    
     # Bar Graph 1 -
     bar_df = top_five_df[['Comb_Name','CAT_A', 'CAT_B', 'CAT_C', 'CAT_D', 'CAT_E']]
     bar_df.plot(x='Comb_Name', kind='bar')
@@ -176,29 +201,12 @@ def visuals_1(): #to encapsulate all graphical work - # Future TO DO : Explore o
     plt.style.use('ggplot')
     st.pyplot(plt.gcf())
 
-    #Function to get back terr level data -
-
-
 def show_res_1():
     #If results are calculated show the following -
     
     #Removed Polars Sorting API - Not needed for now , Manually Sorting and keeping top 5
     st.subheader("Objective Result - ")
-    # st.dataframe(ss['objective_df_pd'],height= 180,hide_index=True)
-    ss['style_df_main'] = ss['objective_df_pd'].copy() #Creating a Separate Copy Just for printing 
-    #sorting it by required order - 
-    ss['style_df_main'].sort_values(by = ['Standard_Deviation','Total','CAT_C'],ascending=[True,False,False],ignore_index=True,inplace=True)
-    #Applying Formatting Fixes -
-    for col in ['Min_Att','Max_Att','Avg_Att']:
-        ss['style_df_main'][col] = ss['style_df_main'][col].round(2)
-        ss['style_df_main'][col] = ss['style_df_main'][col].apply(lambda x: f'{x} %')
-    for col in ss['list_of_metrics']:
-        ss['style_df_main'][col] = (ss['style_df_main'][col]*100).round(2)
-        ss['style_df_main'][col] = ss['style_df_main'][col].apply(lambda x: f'{x} %')
     
-    ss['style_df_main']['Standard_Deviation'] = ss['style_df_main']['Standard_Deviation'].round(3)
-    ss['style_df_main']['MSE'] = ss['style_df_main']['MSE'].round(3)
-    #### END OF FORMAT FIXES ###
     st.dataframe(ss['style_df_main'],height= 180,hide_index=True)
     with st.expander("Get Help on Column Names ☝️"):
         st.markdown("""
