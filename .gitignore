@@ -8,4 +8,4 @@
 /*.xlsx
 
 #To ignore testing ipynb file
-process_unit_fix.ipynb
+/*.ipynb

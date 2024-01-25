@@ -9,6 +9,7 @@ import itertools
 from stqdm import stqdm
 import io
 import matplotlib.pyplot as plt
+import altair as alt
 
 st.set_page_config(
     page_title="GST-Processing",
@@ -188,18 +189,40 @@ def visuals_1(): #to encapsulate all graphical work - # Future TO DO : Explore o
     
     # Bar Graph 1 -
     bar_df = top_five_df[['Comb_Name','CAT_A', 'CAT_B', 'CAT_C', 'CAT_D', 'CAT_E']]
-    bar_df.plot(x='Comb_Name', kind='bar')
-    plt.xlabel('Categories')
-    plt.ylabel('Count of Territories')
-    plt.title('Comparison of Categories for Top 5 Combinations with Lowest Standard Deviation')
-    plt.xticks(rotation=15)  # for labels tilted at 45 degrees
-    plt.legend(['0 to 97%','97% to 99%','99% to 100%','100% to 103%','103% to ∞'],
-            bbox_to_anchor=(1.05, 1), 
-            loc='upper left',
-            title='Percentage Bins',
-            frameon=True,shadow=True,fancybox=True,edgecolor='black',facecolor='white',fontsize='medium')
-    plt.style.use('ggplot')
-    st.pyplot(plt.gcf())
+
+    #matplot lib way - 
+    # bar_df.plot(x='Comb_Name', kind='bar')
+    # plt.xlabel('Categories')
+    # plt.ylabel('Count of Territories')
+    # plt.title('Comparison of Categories for Top 5 Combinations with Lowest Standard Deviation')
+    # plt.xticks(rotation=15)  # for labels tilted at 45 degrees
+    # plt.legend(['0 to 97%','97% to 99%','99% to 100%','100% to 103%','103% to ∞'],
+    #         bbox_to_anchor=(1.05, 1), 
+    #         loc='upper left',
+    #         title='Percentage Bins',
+    #         frameon=True,shadow=True,fancybox=True,edgecolor='black',facecolor='white',fontsize='medium')
+    # plt.style.use('ggplot')
+    # st.pyplot(plt.gcf())
+
+    #Streamlit way - 
+    # st.bar_chart(
+    #     data = bar_df,
+    #     x = 'Comb_Name',
+    #     y = ['CAT_A', 'CAT_B', 'CAT_C', 'CAT_D', 'CAT_E']
+    # )
+
+    #Altair way -
+    df_melted = bar_df.melt('Comb_Name', var_name='Category', value_name='Values')
+
+    # Create the Altair chart
+    chart = alt.Chart(df_melted).mark_bar().encode(
+    x=alt.X('Comb_Name:N', title='Combination Name'),
+    y=alt.Y('Values:Q', title='Count of Territories'),
+    color='Category:N',
+    column='Comb_Name:N'
+    )
+    # Display the chart in Streamlit
+    st.altair_chart(chart)    
 
 def show_res_1():
     #If results are calculated show the following -
@@ -272,7 +295,7 @@ if ss.open_download_sec and ss.pro_com:
         # Write each dataframe to a different worksheet.
         ss['objective_df_pd'].to_excel(writer, sheet_name='Sheet1',index=False)
         # Close the Pandas Excel writer and output the Excel file to the buffer
-        #writer.close()
+        writer.close()
 
         c5.download_button(
             label="Download Excel worksheet",
