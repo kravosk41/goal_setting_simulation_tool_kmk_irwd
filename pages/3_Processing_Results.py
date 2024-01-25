@@ -9,14 +9,15 @@ import itertools
 from stqdm import stqdm
 import io
 import matplotlib.pyplot as plt
-import altair as alt
+import statsmodels.api as sm
+import plotly.express as px
 
 st.set_page_config(
     page_title="GST-Processing",
     layout="wide",
     initial_sidebar_state="auto",
     page_icon='🤞'
-)# add icon later
+)
 
 def add_logo():
     st.markdown(
@@ -43,10 +44,6 @@ def add_logo():
 
 add_logo()
 
-st.markdown("<h1 style='text-align: center;'>Processing Combinations</h1>", unsafe_allow_html=True)
-st.markdown("<h6 style='text-align: center;'>Ensure That you Submitted Combinations</h6>",unsafe_allow_html=True)
-
-
 if 'start_filter' not in ss: #tracks button click status
     ss.start_filter = False
 if 'pro_com' not in ss: #tracks if results were done processing or not
@@ -54,19 +51,18 @@ if 'pro_com' not in ss: #tracks if results were done processing or not
 if 'open_download_sec' not in ss: # IF results got printed - Give option to download
     ss.open_download_sec = False
 
-c1,c2,c3 = st.columns([5,5,1])
-if c2.button("Start Processing"):
-    ss.start_filter = True
-
-st.markdown("---")
-
+# These are used in objective() | Territory Attainment Classifier 
 # Define the boundaries of the bins
 bins = [0, 97, 99.001, 101.001, 103, 999]
-
 # Define the labels for the bins
 labels = ['a', 'b', 'c', 'd', 'e']
 
-def objective(*metric_weights):
+# Functions -
+# 1. objective - This is a helper function to calcuate metrics for a given list of weights 
+# Input : N number of goal setting weights , Return Type Flag
+# Output : Standard Deviation, MSE, Attainment Type Classifer (in dict form),
+#          min, max and mean attainment | Territory Level Data for a given Combination of weights
+def objective(*metric_weights,terr_flag=False):
     comp_weights = {}
     #populating comp_weights -
     for weight_name,weight_value in zip(ss['list_of_metrics'],metric_weights):
@@ -84,9 +80,7 @@ def objective(*metric_weights):
     
     work_df['Final_Quota'] = sum(work_df[col + '_w'] for col in computation_cols)
     work_df['Attainment'] = (work_df['Actuals'] / work_df['Final_Quota']) * 100
-
     work_df['Att_Classifier'] = pd.cut(work_df['Attainment'], bins=bins, labels=labels)
-    
     Att_Cat_Counts = work_df['Att_Classifier'].value_counts().to_dict()
     Att_Cat_Counts = dict(sorted(Att_Cat_Counts.items(), key=lambda item: item[0]))
 
@@ -98,12 +92,14 @@ def objective(*metric_weights):
         work_df['Attainment'].max(),
         work_df['Attainment'].mean()
     ]
+    # if terr_flag is true , return terr level data instead of
+    if terr_flag==True:
+        return work_df
+    else:
+        return(return_list)
 
-    #For QC Inspection
-    objective.work_df = work_df
-
-    return(return_list)
-
+# 2. process_1 - Controller Function | Happens on Button Press | Also calls objective()
+# Also Formats the df into more user friendly format | For printing only !
 def process_1():
     comb_pd = pd.DataFrame()
     chunk_size = 1000000
@@ -132,7 +128,7 @@ def process_1():
         return #exiting out of process_1()
     
     #saving result - May not be necessary :
-    comb_pd.to_parquet('comb_pd.parquet')
+    #comb_pd.to_parquet('comb_pd.parquet')
     
     def apply_objective(row):
         result = objective(*row)
@@ -171,66 +167,87 @@ def process_1():
     #Processing Complete -
     ss.pro_com = True
 
-def visuals_1(): #to encapsulate all graphical work - # Future TO DO : Explore other libs | Cache results
-    # to get top 5 contenders - 
-    top_five_df = ss['objective_df_pd'].sort_values(by = ['Standard_Deviation','Total','CAT_C'],ascending=[True,False,False],ignore_index=True)
-    top_five_df = top_five_df.head(5).copy()
-    top_five_df['Comb_Name'] = ['Comb ' + str(i) for i in range(1, len(top_five_df) + 1)]
+# 3. visuals_1 - To Encapsulate all graphical and plot work | Currently using Plotly.express charts
+# Future TO DO | Explore @st.cache_data to make page switch processing faster.
+def visuals_1():
 
+    # Isolate top 5 and Prepare Data - 
+
+    # to get top 5 contenders - 
+    top_five_df = ss['objective_df_pd'].sort_values(by = ['Standard_Deviation','Total','CAT_C'],
+                                                    ascending=[True,False,False],ignore_index=True)
+    top_five_df = top_five_df.head(5).copy() #This could be controlled by an argument in the future
+    top_five_df['Comb_Name'] = ['Comb ' + str(i) for i in range(1, len(top_five_df) + 1)]
+    #Giving a name to the combination - 'Comb n'
+    
     #Function to get back terr level data -
     def get_terr_level_df(row):
-        objective(*row)
-        return(objective.work_df)
-
+        df = objective(*row,terr_flag=True) #Passing True to get terr df instead of metrics
+        return(df)
+    
+    #Fetching the terr level data for top 5 rows & storing in explict df names
     for i in range(len(top_five_df)):
         argument_row = top_five_df[['Comb_Name'] + ss['list_of_metrics']].iloc[i]
-        new_terr_df_name = str(argument_row.iloc[0]).replace(' ','_') + '_terr_df' #replaced space with _ 
+        #isolate just the weights from results
+        new_terr_df_name = str(argument_row.iloc[0]).replace(' ','_') + '_terr_df' 
+        #replaced space with _ to have valid df name
         globals()[new_terr_df_name] = get_terr_level_df(argument_row[1:])
-    
-    # Bar Graph 1 -
-    bar_df = top_five_df[['Comb_Name','CAT_A', 'CAT_B', 'CAT_C', 'CAT_D', 'CAT_E']]
+        #passing arguments and storing in globals directly
 
-    #matplot lib way - 
-    # bar_df.plot(x='Comb_Name', kind='bar')
-    # plt.xlabel('Categories')
-    # plt.ylabel('Count of Territories')
-    # plt.title('Comparison of Categories for Top 5 Combinations with Lowest Standard Deviation')
-    # plt.xticks(rotation=15)  # for labels tilted at 45 degrees
-    # plt.legend(['0 to 97%','97% to 99%','99% to 100%','100% to 103%','103% to ∞'],
-    #         bbox_to_anchor=(1.05, 1), 
-    #         loc='upper left',
-    #         title='Percentage Bins',
-    #         frameon=True,shadow=True,fancybox=True,edgecolor='black',facecolor='white',fontsize='medium')
-    # plt.style.use('ggplot')
-    # st.pyplot(plt.gcf())
+    # End of Calculations 
+    # Start Drawing -
+    c4,c5 = st.columns(2) #one for TOP 5 | other for group graph 1
+    c4.write("")
+    c4.subheader("__Top 5 Combinations -__")
+    for _ in range(5):  # Adjust the range for more or less space
+        c4.write("")
 
-    #Streamlit way - 
-    # st.bar_chart(
-    #     data = bar_df,
-    #     x = 'Comb_Name',
-    #     y = ['CAT_A', 'CAT_B', 'CAT_C', 'CAT_D', 'CAT_E']
-    # )
+    #c4.dataframe(top_five_df[['Comb_Name'] + ss['list_of_metrics']],hide_index=True) # limited view
+    c4.dataframe(top_five_df,hide_index = True)
+    with c5:
+        df_long = top_five_df[['Comb_Name','CAT_A','CAT_B','CAT_C','CAT_D','CAT_E']]
+        df_long = df_long.melt('Comb_Name', var_name='Category', value_name='Values')
+        fig = px.bar(df_long, 
+                x="Category", 
+                y="Values", 
+                color="Category",
+                facet_col="Comb_Name", 
+                labels={"Values": "Values", "Category": "Category", "Comb_Name": "Comb_Name"},
+                title="Territory Attainment Bins | Comparison")
 
-    #Altair way -
-    df_melted = bar_df.melt('Comb_Name', var_name='Category', value_name='Values')
+        fig.update_layout(showlegend=True)
+        st.plotly_chart(fig)
+    st.markdown("---")
+    # To Do : Add Select Box for Combination 1 to 5
+    #comb_sel = st.selectbox('Pick a Combination :',top_five_df['Comb_Name'].unique())
+    comb_sel = st.radio('Pick a Combination :',top_five_df['Comb_Name'].unique())
+    comb_sel = comb_sel.replace(' ','_')
+    #st.write('<style>div.row-widget.stRadio > div{flex-direction:row;justify-content: center;} </style>', unsafe_allow_html=True)
+    st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
+    metr_sel = st.radio('Pick a Metric',ss['list_of_metrics'])
+    #metr_sel = st.selectbox('Pick a Metric',ss['list_of_metrics'])
 
-    # Create the Altair chart
-    chart = alt.Chart(df_melted).mark_bar().encode(
-    x=alt.X('Comb_Name:N', title='Combination Name'),
-    y=alt.Y('Values:Q', title='Count of Territories'),
-    color='Category:N',
-    column='Comb_Name:N'
+
+    #st.write(metr_sel)
+    fig = px.scatter(
+        data_frame = globals()[comb_sel+'_terr_df'],
+        x = metr_sel, #pick a metric
+        y = 'Actuals',
+        color_discrete_sequence=['cyan'],
+        trendline='ols',
+        trendline_color_override = 'orange'
     )
-    # Display the chart in Streamlit
-    st.altair_chart(chart)    
+    st.plotly_chart(fig)
 
+    # Print Scatter Graphs for A couple if not All Weights | Maybe Add Another Select Box ?
+
+#4. show_res_1 - Controller Function | Happens After Processing already complete 
+# Calls visuals_1 when required 
 def show_res_1():
     #If results are calculated show the following -
-    
-    #Removed Polars Sorting API - Not needed for now , Manually Sorting and keeping top 5
-    st.subheader("Objective Result - ")
-    
-    st.dataframe(ss['style_df_main'],height= 180,hide_index=True)
+    st.markdown("<h2 style='text-align: center;'>Objective Result -</h2>", unsafe_allow_html=True)
+    ph1,ph2,ph3 = st.columns([1,3,1])
+    ph2.dataframe(ss['style_df_main'],height= 220,hide_index=True) #This is calc in process_1
     with st.expander("Get Help on Column Names ☝️"):
         st.markdown("""
         ### Legend
@@ -243,16 +260,22 @@ def show_res_1():
         | CAT_E | 103% to ∞ |
         | Total | B + C + D |
         """)
-    
     st.markdown("---")
     st.markdown("<h2 style='text-align: center;'>Result Visualization</h2>", unsafe_allow_html=True)
     visuals_1() #call graph maker
 
+    #Once Results are done being printed Set Download Section to True ?
 
-#After showing full data
-#sort data by multiple columns and show top five [std LH, total and cat_c HL]    
+#MAIN START :  Main Control Section #####
+st.markdown("<h1 style='text-align: center;'>Processing Combinations</h1>", unsafe_allow_html=True)
+if ss.pro_com == False:
+    st.info('Ensure That you Submitted Combinations', icon="⚠️")
+c1,c2,c3 = st.columns([5,5,1])
+if c2.button("Start Processing"):
+    ss.start_filter = True
+
+
 #If button is pressed -
-
 if ss.start_filter:
     
     #check if combinations are submited & uploaded  AND if results have already been processed or not
@@ -280,8 +303,7 @@ if ss.start_filter:
     else:
         st.write("Did you submit your combinations ?")
 
-    
-    
+
 #Downloads Section - #FUTURE TO DO : Explore ss.cache_data, there seems to be a delay for this to populate
 if ss.open_download_sec and ss.pro_com:
 
