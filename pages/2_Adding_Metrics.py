@@ -160,3 +160,4 @@ if ss.ex_up and ss.list_of_metrics:
                 st.write(f"{comb_counter:,} combinations ready to filter and process !")
                 ss.start_filter = False #to prevent auto rerun of submission of new numbers !
                 ss.pro_com = False # To make sure process reruns if already run before
+                st.switch_page('pages/3_Processing_Results.py')

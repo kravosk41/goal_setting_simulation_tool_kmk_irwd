@@ -137,6 +137,7 @@ if ss.ex_up:
         ss['nation_goal_value'] = nation_goal_value
         ss['excel_file_df'] = data
         st.write(f"Submited Data ! | Metrics :{ss['list_of_metrics']} | Count :{ss['number_of_metrics']}") #print ss vars or local vars ?
+        st.switch_page('pages/2_Adding_Metrics.py')
 
 
 #https://stackoverflow.com/questions/73251012/put-logo-and-title-above-on-top-of-page-navigation-in-sidebar-of-streamlit-multi
