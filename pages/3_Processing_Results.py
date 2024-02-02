@@ -152,7 +152,7 @@ def process_1():
     
     ss['style_df_main'] = ss['objective_df_pd'].copy() #Creating a Separate Copy Just for printing 
     #sorting it by required order - 
-    ss['style_df_main'].sort_values(by = ['Standard_Deviation','Total','CAT_C'],ascending=[True,False,False],ignore_index=True,inplace=True)
+    ss['style_df_main'].sort_values(by = ['Total','CAT_C','Standard_Deviation'],ascending=[False,False,True],ignore_index=True,inplace=True)
     #Applying Formatting Fixes -
     for col in ['Min_Att','Max_Att','Avg_Att']:
         ss['style_df_main'][col] = ss['style_df_main'][col].round(2)
@@ -232,14 +232,29 @@ def visuals_1():
     fig = px.scatter(
         data_frame = globals()[comb_sel+'_terr_df'],
         x = metr_sel, #pick a metric
-        y = 'Actuals',
+        y = 'Attainment',
         color_discrete_sequence=['cyan'],
         trendline='ols',
         trendline_color_override = 'orange'
     )
     st.plotly_chart(fig)
-
     # Print Scatter Graphs for A couple if not All Weights | Maybe Add Another Select Box ?
+    st.markdown('---')
+    st.write('Metric V Metric Corelation-')
+    
+    metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'])
+    metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'])
+
+    #graph number 2- 
+    fig  = px.scatter(
+        data_frame = globals()[comb_sel+'_terr_df'],
+        x = metr_sel_1, #pick a metric
+        y = metr_sel_2,
+        color_discrete_sequence=['cyan'],
+        trendline='ols',
+        trendline_color_override = 'orange'
+    )
+    st.plotly_chart(fig)
 
 #4. show_res_1 - Controller Function | Happens After Processing already complete 
 # Calls visuals_1 when required 

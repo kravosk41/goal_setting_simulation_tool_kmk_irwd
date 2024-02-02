@@ -51,7 +51,7 @@ st.markdown("<h4 style='text-align: left;'>The Following tool can be used to fin
 #st.markdown("---")
 
 
-with st.expander("Get Help on Format ☝️"):
+with st.expander("Download Template ☝️"):
     st.write("Enter the number of Weight Metrics you have in your project \
                 followed by the their names, the download button will give you a blank excel to populate your data in !")
 
@@ -81,7 +81,7 @@ with st.expander("Get Help on Format ☝️"):
 
 st.markdown("---")
 st.subheader("Upload Raw Data ")
-st.write("Please Upload raw data the correct format for smooth processing")
+st.write("Please Upload raw data in the correct format for smooth processing")
 
 if 'ex_up' not in ss:
     ss.ex_up = False
