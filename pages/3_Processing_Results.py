@@ -84,13 +84,19 @@ def objective(*metric_weights,terr_flag=False):
     Att_Cat_Counts = work_df['Att_Classifier'].value_counts().to_dict()
     Att_Cat_Counts = dict(sorted(Att_Cat_Counts.items(), key=lambda item: item[0]))
 
+    #corr numbers-
+    corr_dict={}
+    for col in computation_cols:
+        cor_var_name = col + '_cor'
+        corr_dict[cor_var_name] = work_df[col].corr(work_df['Actuals'])
+
     return_list = [
         work_df['Attainment'].std(),
-        ((work_df['Attainment'] - 100)**2).sum()/work_df.shape[0],
         Att_Cat_Counts,
         work_df['Attainment'].min(),
         work_df['Attainment'].max(),
-        work_df['Attainment'].mean()
+        work_df['Attainment'].mean(),
+        corr_dict
     ]
     # if terr_flag is true , return terr level data instead of
     if terr_flag==True:
@@ -136,13 +142,17 @@ def process_1():
     
     #Applying Objective Function - this will take time
     stqdm.pandas(desc="Applying Objective Function to Combinations")
-    comb_pd[['Standard_Deviation', 'MSE','Att_Cat_Counts','Min_Att','Max_Att','Avg_Att']] = comb_pd.progress_apply(apply_objective,axis=1)
+    comb_pd[['Standard_Deviation','Att_Cat_Counts','Min_Att','Max_Att','Avg_Att','corr_dict']] = comb_pd.progress_apply(apply_objective,axis=1)
 
     #Adding Secondary Comparitive Metrics - 
     comb_pd1 = comb_pd.copy()
-    comb_pd1[['CAT_A', 'CAT_B', 'CAT_C', 'CAT_D', 'CAT_E']] = comb_pd['Att_Cat_Counts'].apply(lambda x: pd.Series([x['a'], x['b'], x['c'], x['d'], x['e']]))
+    comb_pd1[['CAT_A', 'CAT_B', 'CAT_C', 'CAT_D', 'CAT_E']] = comb_pd1['Att_Cat_Counts'].apply(lambda x: pd.Series([x['a'], x['b'], x['c'], x['d'], x['e']]))
     comb_pd1['Total'] = comb_pd1['CAT_B'] + comb_pd1['CAT_C'] + comb_pd1['CAT_D']
     comb_pd1 = comb_pd1.drop(columns='Att_Cat_Counts')
+
+    #Pulling Correlation Metrics - 
+    comb_pd1[[col+'_corr' for col in ss['list_of_metrics']]] = comb_pd1['corr_dict'].apply(pd.Series)
+    comb_pd1 = comb_pd1.drop(columns='corr_dict')
     
     #Store result
     ss['objective_df_pd'] = comb_pd1 
@@ -162,7 +172,17 @@ def process_1():
         ss['style_df_main'][col] = ss['style_df_main'][col].apply(lambda x: f'{x} %')
     
     ss['style_df_main']['Standard_Deviation'] = ss['style_df_main']['Standard_Deviation'].round(3)
-    ss['style_df_main']['MSE'] = ss['style_df_main']['MSE'].round(3)
+    #ss['style_df_main']['MSE'] = ss['style_df_main']['MSE'].round(3)
+
+    #adding renamed columns to from legend - 
+    ss['style_df_main'] = ss['style_df_main'].rename(columns={
+        'CAT_A':'0% to 97%',
+        'CAT_B':'97% to 99%',
+        'CAT_C':'99% to 100%',
+        'CAT_D':'100% to 103%',
+        'CAT_E':'103% to ∞',
+        'Total':'97% to 103%'
+    })
     #### END OF FORMAT FIXES ###
     #Processing Complete -
     ss.pro_com = True
@@ -174,11 +194,21 @@ def visuals_1():
     # Isolate top 5 and Prepare Data - 
 
     # to get top 5 contenders - 
-    top_five_df = ss['objective_df_pd'].sort_values(by = ['Standard_Deviation','Total','CAT_C'],
-                                                    ascending=[True,False,False],ignore_index=True)
+    top_five_df = ss['objective_df_pd'].sort_values(by = ['Total','CAT_C','Standard_Deviation'],
+                                                    ascending=[False,False,True],ignore_index=True)
     top_five_df = top_five_df.head(5).copy() #This could be controlled by an argument in the future
-    top_five_df['Comb_Name'] = ['Comb ' + str(i) for i in range(1, len(top_five_df) + 1)]
-    #Giving a name to the combination - 'Comb n'
+    top_five_df['Method'] = ['M' + str(i) for i in range(1, len(top_five_df) + 1)]
+    #rname - 
+    top_five_df = top_five_df.rename(columns={
+        'CAT_A':'0% to 97%',
+        'CAT_B':'97% to 99%',
+        'CAT_C':'99% to 100%',
+        'CAT_D':'100% to 103%',
+        'CAT_E':'103% to ∞',
+        'Total':'97% to 103%'
+    })
+
+    #Giving a name to the combination - 'M<n>'
     
     #Function to get back terr level data -
     def get_terr_level_df(row):
@@ -187,44 +217,48 @@ def visuals_1():
     
     #Fetching the terr level data for top 5 rows & storing in explict df names
     for i in range(len(top_five_df)):
-        argument_row = top_five_df[['Comb_Name'] + ss['list_of_metrics']].iloc[i]
+        argument_row = top_five_df[['Method'] + ss['list_of_metrics']].iloc[i]
         #isolate just the weights from results
-        new_terr_df_name = str(argument_row.iloc[0]).replace(' ','_') + '_terr_df' 
+        new_terr_df_name = str(argument_row.iloc[0]) + '_terr_df' 
         #replaced space with _ to have valid df name
         globals()[new_terr_df_name] = get_terr_level_df(argument_row[1:])
         #passing arguments and storing in globals directly
 
     # End of Calculations 
     # Start Drawing -
-    c4,c5 = st.columns(2) #one for TOP 5 | other for group graph 1
-    c4.write("")
-    c4.subheader("__Top 5 Combinations -__")
-    for _ in range(5):  # Adjust the range for more or less space
-        c4.write("")
+    # c4,c5 = st.columns(2) #one for TOP 5 | other for group graph 1
+    # c4.write("")
+    st.subheader("__Top 5 Combinations -__")
+    # for _ in range(5):  # Adjust the range for more or less space
+    #     c4.write("")
 
     #c4.dataframe(top_five_df[['Comb_Name'] + ss['list_of_metrics']],hide_index=True) # limited view
-    c4.dataframe(top_five_df,hide_index = True)
-    with c5:
-        df_long = top_five_df[['Comb_Name','CAT_A','CAT_B','CAT_C','CAT_D','CAT_E']]
-        df_long = df_long.melt('Comb_Name', var_name='Category', value_name='Values')
-        fig = px.bar(df_long, 
-                x="Category", 
-                y="Values", 
-                color="Category",
-                facet_col="Comb_Name", 
-                labels={"Values": "Values", "Category": "Category", "Comb_Name": "Comb_Name"},
-                title="Territory Attainment Bins | Comparison")
+    st.dataframe(top_five_df,hide_index = True,use_container_width=True)
+    #with c5:
+    df_long = top_five_df[['Method','0% to 97%','97% to 99%','99% to 100%','100% to 103%','103% to ∞']]
+    df_long = df_long.melt('Method', var_name='Category', value_name='Values')
+    fig = px.bar(df_long, 
+            x="Method", 
+            y="Values", 
+            color="Method",
+            facet_col="Category",
+            facet_col_wrap=5,
+            text='Values',
+            labels={"Values": "Values", "Category": "Category", "Method": "Method"},
+            title="Attainment Distribution Chart")
 
-        fig.update_layout(showlegend=True)
-        st.plotly_chart(fig)
+    fig.update_layout(showlegend=True)
+    fig.update_layout(title_font_size=20,title_x=0.45, title_xref='paper')
+    st.plotly_chart(fig,use_container_width=True)
     st.markdown("---")
+    st.markdown("<h2 style='text-align: center;'>Fairness Testing and Goals Accuracy</h2>", unsafe_allow_html=True)
     # To Do : Add Select Box for Combination 1 to 5
     #comb_sel = st.selectbox('Pick a Combination :',top_five_df['Comb_Name'].unique())
-    comb_sel = st.radio('Pick a Combination :',top_five_df['Comb_Name'].unique())
+    comb_sel = st.radio('Y Axis -  :',top_five_df['Method'].unique())
     comb_sel = comb_sel.replace(' ','_')
     #st.write('<style>div.row-widget.stRadio > div{flex-direction:row;justify-content: center;} </style>', unsafe_allow_html=True)
     st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
-    metr_sel = st.radio('Pick a Metric',ss['list_of_metrics'])
+    metr_sel = st.radio('X Axis-',ss['list_of_metrics'])
     #metr_sel = st.selectbox('Pick a Metric',ss['list_of_metrics'])
 
 
@@ -235,10 +269,33 @@ def visuals_1():
         y = 'Attainment',
         color_discrete_sequence=['cyan'],
         trendline='ols',
-        trendline_color_override = 'orange'
+        trendline_color_override = 'orange',
+        title=metr_sel + ' vs Attainment for ' + comb_sel
     )
-    st.plotly_chart(fig)
+    fig.update_layout(title_font_size=20,title_x=0.43, title_xref='paper')
+    # For R Squared - 
+    results = px.get_trendline_results(fig)
+    r_squared = results.iloc[0]["px_fit_results"].rsquared
+    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.2f}",showarrow=False,font={'size':25},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+    st.plotly_chart(fig,use_container_width=True)
     # Print Scatter Graphs for A couple if not All Weights | Maybe Add Another Select Box ?
+    # New chart - 
+    fig = px.scatter(
+        data_frame = globals()[comb_sel+'_terr_df'],
+        x = 'Actuals', #pick a metric
+        y = 'Final_Quota',
+        color_discrete_sequence=['cyan'],
+        trendline='ols',
+        trendline_color_override = 'orange',
+        title='Goal Accuracy'
+    )
+    fig.update_layout(title_font_size=20,title_x=0.45, title_xref='paper')
+    # For R Squared - 
+    results = px.get_trendline_results(fig)
+    r_squared = results.iloc[0]["px_fit_results"].rsquared
+    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.2f}",showarrow=False,font={'size':25},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+    st.plotly_chart(fig,use_container_width=True)
+
     st.markdown('---')
     st.write('Metric V Metric Corelation-')
     
@@ -252,17 +309,23 @@ def visuals_1():
         y = metr_sel_2,
         color_discrete_sequence=['cyan'],
         trendline='ols',
-        trendline_color_override = 'orange'
+        trendline_color_override = 'orange',
+        title = metr_sel_1 + ' vs ' +metr_sel_2
     )
-    st.plotly_chart(fig)
+    # For R Squared - 
+    results = px.get_trendline_results(fig)
+    r_squared = results.iloc[0]["px_fit_results"].rsquared
+    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.2f}",showarrow=False,font={'size':25},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+    fig.update_layout(title_font_size=20,title_x=0.45, title_xref='paper')
+    st.plotly_chart(fig,use_container_width=True)
 
 #4. show_res_1 - Controller Function | Happens After Processing already complete 
 # Calls visuals_1 when required 
 def show_res_1():
     #If results are calculated show the following -
     st.markdown("<h2 style='text-align: center;'>Objective Result -</h2>", unsafe_allow_html=True)
-    ph1,ph2,ph3 = st.columns([1,3,1])
-    ph2.dataframe(ss['style_df_main'],height= 220,hide_index=True) #This is calc in process_1
+    ph1,ph2,ph3 = st.columns([1,6,1])
+    st.dataframe(ss['style_df_main'],height= 220,use_container_width=True,hide_index=True) #This is calc in process_1
     with st.expander("Get Help on Column Names ☝️"):
         st.markdown("""
         ### Legend
@@ -274,7 +337,7 @@ def show_res_1():
         | CAT_D | 100% to 103% |
         | CAT_E | 103% to ∞ |
         | Total | B + C + D |
-        """)
+        """,unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("<h2 style='text-align: center;'>Result Visualization</h2>", unsafe_allow_html=True)
     visuals_1() #call graph maker

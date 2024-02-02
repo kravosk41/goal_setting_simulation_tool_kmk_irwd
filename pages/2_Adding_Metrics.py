@@ -73,10 +73,10 @@ if ss.ex_up and ss.list_of_metrics:
     #SECTION 1 - User Inputs the metric constraints - 
 
     col1, col2, col3, col4 = st.columns(4,gap='medium')
-    col1.subheader("Metric Name")
-    col2.subheader("Min")
-    col3.subheader("Max")
-    col4.subheader("Increment")
+    col1.markdown("<h3 style='text-align: center;'>Metric Name</h3>", unsafe_allow_html=True)
+    col2.markdown("<h3 style='text-align: center;'>Min</h3>", unsafe_allow_html=True)
+    col3.markdown("<h3 style='text-align: center;'>Max</h3>", unsafe_allow_html=True)
+    col4.markdown("<h3 style='text-align: center;'>Increment</h3>", unsafe_allow_html=True)
 
 
     range_constraints_list = []
@@ -98,9 +98,22 @@ if ss.ex_up and ss.list_of_metrics:
     st.markdown("<h3 style='text-align: center;'>Input Summary Stats - </h3>", unsafe_allow_html=True)
     summary_df = pd.DataFrame(range_constraints_list, columns=['Min', 'Max', 'Increment'])
     summary_df.insert(0, 'Metric Name', ss['list_of_metrics'])
+    #styling df - 
+    summary_df_styled = summary_df.copy()
+    for col in ['Min', 'Max', 'Increment']:
+        summary_df_styled[col] = summary_df_styled[col].apply(lambda x: f'{x*100} %')
+        summary_df_styled[col] = summary_df_styled[col].round(2)
+        
 
-    c1,c2,c3 = st.columns([2,3,2])
-    c2.dataframe(summary_df,hide_index=True,width=960)
+    s1 = dict(selector='th', props=[('text-align', 'center')])
+    s2 = dict(selector='td', props=[('text-align', 'center')])
+    table = summary_df_styled.style.set_table_styles([s1,s2]).hide(axis=0).to_html()
+    centered_table = f'<div style="display: flex; justify-content: center;">{table}</div>'  
+
+    #c1,c2,c3 = st.columns([2,2,2])
+    #c2.dataframe(summary_df,hide_index=True,width=960)
+    #c2.write(f'{table}',unsafe_allow_html=True)
+    st.write(centered_table, unsafe_allow_html=True)
 
     st.markdown("---")
     # Adding A Button to Create Numpy Arrays - Potentially Costly Option | Therefore making it deliberate instead of auto
