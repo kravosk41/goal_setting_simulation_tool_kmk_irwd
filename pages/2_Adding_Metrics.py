@@ -157,11 +157,14 @@ if ss.ex_up and ss.list_of_metrics:
                 comb_counter *= len(item)
                 len_list.append(len(item))
             
-            st.warning('Please note: You must submit your inputs before you start processing results')
+            st.warning('Please note: You must submit your inputs before you start processing results',icon='👋')
             st.write("Number of Possible % Values for each range : ",str(len_list))
             st.write("Total Possible Combinations Pre 100% Sum Constraint : ",f'{comb_counter:,}')
-            st.write("**Note For User**: If the total number of combinations is in the billions please make sure your system has enough memory ")
-            st.write("_This will cause future  Operations to take significant time!_")
+            if comb_counter >= 1_000_000_000:
+                st.error("Too many possible combinations, reconsider metric ranges ? ",icon='🚨')
+                st.info("**Note For User**: If the total number of combinations is in the billions please make sure your system has enough memory \
+                        \n_This will cause future  Operations to take significant time!_ ",icon='ℹ️')
+        
             
 
             st.markdown("---")

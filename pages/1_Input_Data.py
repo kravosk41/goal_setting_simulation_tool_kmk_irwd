@@ -100,7 +100,7 @@ st.markdown("---")
 if ss.ex_up:
     data = pd.read_excel(ss['file'])
     nation_goal_value = data.iloc[0,-1]
-    st.markdown(f"<h5 style='text-align: center;'>National Level Goal : {nation_goal_value:,}</h5>", unsafe_allow_html=True)
+    st.markdown(f"<h5 style='text-align: center;'>National Level Goal : {nation_goal_value:,.2f}</h5>", unsafe_allow_html=True)
     data.drop(columns=['NATION_GOAL'],inplace=True)
 
     #Number of metrics count here -
@@ -114,12 +114,19 @@ if ss.ex_up:
     st.dataframe(data,height= 180,hide_index=True)
 
     st.markdown("---")
-    st.markdown(f"<h5 style='text-align: left;'>Validations : </h5>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align: left;'>Validations : </h4>", unsafe_allow_html=True)
 
     if data.isnull().values.any():
         print("Null Values Detected !")
     else:
         st.write("No Null Values found :smile:")
+        st.write('---')
+        st.subheader('Input File Stats - ')
+        st.write("Total Number of Terrs : ",len(data['Territory_Number'].unique()))
+        st.write(f"Sum of Actuals : {data['Actuals'].sum():,.2f}")
+        for m in list_of_metrics:
+            st.write(f'{m} Sum : {data[m].sum():,.2f}')
+        st.write(f'Metrics Received : {list_of_metrics}')
 
     st.markdown("---")
 

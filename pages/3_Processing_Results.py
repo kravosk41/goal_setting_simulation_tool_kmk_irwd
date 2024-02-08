@@ -88,7 +88,7 @@ def objective(*metric_weights,terr_flag=False):
     corr_dict={}
     for col in computation_cols:
         cor_var_name = col + '_cor'
-        corr_dict[cor_var_name] = work_df[col].corr(work_df['Actuals'])
+        corr_dict[cor_var_name] = work_df[col].corr(work_df['Attainment'])
 
     return_list = [
         work_df['Attainment'].std(),
@@ -245,6 +245,7 @@ def visuals_1():
             facet_col_wrap=5,
             text='Values',
             labels={"Values": "Values", "Category": "Category", "Method": "Method"},
+            color_discrete_map ={'M1': '#7cb342','M2':'#23dedb','M3':'#4c57ba','M4':'#f57f17','M5':'#b71c1c'},
             title="Attainment Distribution Chart")
 
     fig.update_layout(showlegend=True)
@@ -252,62 +253,90 @@ def visuals_1():
     st.plotly_chart(fig,use_container_width=True)
     st.markdown("---")
     st.markdown("<h2 style='text-align: center;'>Fairness Testing and Goals Accuracy</h2>", unsafe_allow_html=True)
-    # To Do : Add Select Box for Combination 1 to 5
-    #comb_sel = st.selectbox('Pick a Combination :',top_five_df['Comb_Name'].unique())
-    comb_sel = st.radio('Y Axis -  :',top_five_df['Method'].unique())
-    comb_sel = comb_sel.replace(' ','_')
-    #st.write('<style>div.row-widget.stRadio > div{flex-direction:row;justify-content: center;} </style>', unsafe_allow_html=True)
-    st.write('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
-    metr_sel = st.radio('X Axis-',ss['list_of_metrics'])
-    #metr_sel = st.selectbox('Pick a Metric',ss['list_of_metrics'])
-
-
-    #st.write(metr_sel)
-    fig = px.scatter(
-        data_frame = globals()[comb_sel+'_terr_df'],
-        x = metr_sel, #pick a metric
-        y = 'Attainment',
-        color_discrete_sequence=['cyan'],
-        trendline='ols',
-        trendline_color_override = 'orange',
-        title=metr_sel + ' vs Attainment for ' + comb_sel
-    )
-    fig.update_layout(title_font_size=20,title_x=0.43, title_xref='paper')
-    # For R Squared - 
-    results = px.get_trendline_results(fig)
-    r_squared = results.iloc[0]["px_fit_results"].rsquared
-    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.2f}",showarrow=False,font={'size':25},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
-    st.plotly_chart(fig,use_container_width=True)
-    # Print Scatter Graphs for A couple if not All Weights | Maybe Add Another Select Box ?
-    # New chart - 
-    fig = px.scatter(
-        data_frame = globals()[comb_sel+'_terr_df'],
-        x = 'Actuals', #pick a metric
-        y = 'Final_Quota',
-        color_discrete_sequence=['cyan'],
-        trendline='ols',
-        trendline_color_override = 'orange',
-        title='Goal Accuracy'
-    )
-    fig.update_layout(title_font_size=20,title_x=0.45, title_xref='paper')
-    # For R Squared - 
-    results = px.get_trendline_results(fig)
-    r_squared = results.iloc[0]["px_fit_results"].rsquared
-    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.2f}",showarrow=False,font={'size':25},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
-    st.plotly_chart(fig,use_container_width=True)
+    #st.write('<style>div.row-widget.stRadio > div{flex-direction:row;justify-content: center;}</style>', unsafe_allow_html=True)
+    split1,split2 = st.columns(2)
+    with split1:
+        comb_sel1 = st.radio('Y Axis -  :',top_five_df['Method'].unique(),key='rk1',horizontal=True)
+        comb_sel1 = comb_sel1.replace(' ','_')
+        metr_sel1 = st.radio('X Axis-',ss['list_of_metrics'],key='rk2',horizontal=True)
+        fig = px.scatter(
+            data_frame = globals()[comb_sel1+'_terr_df'],
+            x = metr_sel1, #pick a metric
+            y = 'Attainment',
+            #color_discrete_sequence=['blue'],
+            trendline='ols',
+            trendline_color_override = 'orange',
+            title=metr_sel1 + ' vs Attainment for ' + comb_sel1
+        )
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
+        # For R Squared - 
+        results = px.get_trendline_results(fig)
+        r_squared = results.iloc[0]["px_fit_results"].rsquared
+        fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+        st.plotly_chart(fig,use_container_width=True)
+        #Chart 2-
+        fig = px.scatter(
+            data_frame = globals()[comb_sel1+'_terr_df'],
+            x = 'Actuals', #pick a metric
+            y = 'Final_Quota',
+            #color_discrete_sequence=['cyan'],
+            trendline='ols',
+            trendline_color_override = 'orange',
+            title='Goal Accuracy'
+        )
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
+        # For R Squared - 
+        results = px.get_trendline_results(fig)
+        r_squared = results.iloc[0]["px_fit_results"].rsquared
+        fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+        st.plotly_chart(fig,use_container_width=True)     
+    with split2:
+        comb_sel2 = st.radio('Y Axis -  :',top_five_df['Method'].unique(),key='rk3',horizontal=True)
+        comb_sel2 = comb_sel2.replace(' ','_')
+        metr_sel2 = st.radio('X Axis-',ss['list_of_metrics'],key='rk4',horizontal=True)
+        fig = px.scatter(
+            data_frame = globals()[comb_sel2+'_terr_df'],
+            x = metr_sel2, #pick a metric
+            y = 'Attainment',
+            #color_discrete_sequence=['cyan'],
+            trendline='ols',
+            trendline_color_override = 'orange',
+            title=metr_sel2 + ' vs Attainment for ' + comb_sel2
+        )
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
+        # For R Squared - 
+        results = px.get_trendline_results(fig)
+        r_squared = results.iloc[0]["px_fit_results"].rsquared
+        fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+        st.plotly_chart(fig,use_container_width=True)
+        #Chart 2-
+        fig = px.scatter(
+            data_frame = globals()[comb_sel2+'_terr_df'],
+            x = 'Actuals', #pick a metric
+            y = 'Final_Quota',
+            #color_discrete_sequence=['cyan'],
+            trendline='ols',
+            trendline_color_override = 'orange',
+            title='Goal Accuracy'
+        )
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
+        # For R Squared - 
+        results = px.get_trendline_results(fig)
+        r_squared = results.iloc[0]["px_fit_results"].rsquared
+        fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+        st.plotly_chart(fig,use_container_width=True) 
 
     st.markdown('---')
-    st.write('Metric V Metric Corelation-')
-    
-    metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'])
-    metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'])
+    st.subheader('Metric V Metric Corelation-')
+    metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'],horizontal=True)
+    metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'],horizontal=True)
 
     #graph number 2- 
     fig  = px.scatter(
-        data_frame = globals()[comb_sel+'_terr_df'],
+        data_frame = globals()[comb_sel1+'_terr_df'],
         x = metr_sel_1, #pick a metric
         y = metr_sel_2,
-        color_discrete_sequence=['cyan'],
+        #color_discrete_sequence=['cyan'],
         trendline='ols',
         trendline_color_override = 'orange',
         title = metr_sel_1 + ' vs ' +metr_sel_2
@@ -315,9 +344,9 @@ def visuals_1():
     # For R Squared - 
     results = px.get_trendline_results(fig)
     r_squared = results.iloc[0]["px_fit_results"].rsquared
-    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.2f}",showarrow=False,font={'size':25},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
     fig.update_layout(title_font_size=20,title_x=0.45, title_xref='paper')
-    st.plotly_chart(fig,use_container_width=True)
+    st.plotly_chart(fig,use_container_width=True)                      
 
 #4. show_res_1 - Controller Function | Happens After Processing already complete 
 # Calls visuals_1 when required 
