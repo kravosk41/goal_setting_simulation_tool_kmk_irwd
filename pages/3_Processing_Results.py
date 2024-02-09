@@ -89,6 +89,7 @@ def objective(*metric_weights,terr_flag=False):
     for col in computation_cols:
         cor_var_name = col + '_cor'
         corr_dict[cor_var_name] = work_df[col].corr(work_df['Attainment'])
+    corr_dict['Goals_Accuracy'] = work_df['Actuals'].corr(work_df['Final_Quota'])
 
     return_list = [
         work_df['Attainment'].std(),
@@ -151,7 +152,7 @@ def process_1():
     comb_pd1 = comb_pd1.drop(columns='Att_Cat_Counts')
 
     #Pulling Correlation Metrics - 
-    comb_pd1[[col+'_corr' for col in ss['list_of_metrics']]] = comb_pd1['corr_dict'].apply(pd.Series)
+    comb_pd1[[col+'_corr' for col in ss['list_of_metrics']]+['Goals_Accuracy']] = comb_pd1['corr_dict'].apply(pd.Series)
     comb_pd1 = comb_pd1.drop(columns='corr_dict')
     
     #Store result
