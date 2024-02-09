@@ -193,10 +193,33 @@ def process_1():
 def visuals_1():
 
     # Isolate top 5 and Prepare Data - 
+    #new ranking method-
+    top_five_df = ss['objective_df_pd'].copy()
+    ### Adding Ranks ### -
+    top_five_df['Total_r'] = top_five_df['Total'].rank(method='dense',ascending=False)
+    top_five_df['CAT_C_r'] = top_five_df['CAT_C'].rank(method='dense',ascending=False)
+    top_five_df['Standard_Deviation_r'] = top_five_df['Standard_Deviation'].rank(method='dense',ascending=True)
+    top_five_df['Goals_Accuracy_r'] = top_five_df['Goals_Accuracy'].rank(method='dense',ascending=False)
+    ### Adding Ranks for Metric Corr columns - ###
+    for col in ss['list_of_metrics']:
+        top_five_df[col+'_abs_corr'] = top_five_df[col+'_corr'].abs() #converting to abs
+        top_five_df[col+'_r'] = top_five_df[col+'_abs_corr'].rank(method='dense', ascending=True)
+    ### Base Formula ###
+    #### Non Changing Fractions ####
+    top_five_df['WT_RANK'] = top_five_df['Total_r']*0.3 + top_five_df['CAT_C_r']*0.2 + top_five_df['Standard_Deviation_r']*0.1
+    #### Changing Fractions ####
+    for metric in ss['list_of_metrics']:
+        top_five_df['WT_RANK'] += top_five_df[metric] * (0.3 / len(ss['list_of_metrics']))
+
+    ### Dropping Redundant Columns ###
+    top_five_df.drop(columns=[c for c in top_five_df.columns if c.endswith('_r') or c.endswith('_abs_corr')],inplace=True)
+
+    ### Sorting on Final Weighted Rank ###
+    top_five_df.sort_values('WT_RANK',inplace=True)
 
     # to get top 5 contenders - 
-    top_five_df = ss['objective_df_pd'].sort_values(by = ['Total','CAT_C','Standard_Deviation'],
-                                                    ascending=[False,False,True],ignore_index=True)
+    # top_five_df = ss['objective_df_pd'].sort_values(by = ['Total','CAT_C','Standard_Deviation'],
+    #                                                 ascending=[False,False,True],ignore_index=True)
     top_five_df = top_five_df.head(5).copy() #This could be controlled by an argument in the future
     top_five_df['Method'] = ['M' + str(i) for i in range(1, len(top_five_df) + 1)]
     #rname - 
@@ -235,6 +258,21 @@ def visuals_1():
 
     #c4.dataframe(top_five_df[['Comb_Name'] + ss['list_of_metrics']],hide_index=True) # limited view
     st.dataframe(top_five_df,hide_index = True,use_container_width=True)
+    with st.expander(':information_source: Info on Ranking Methodology  ↙️'):
+        st.subheader('Weighted Rank Calcualtion')
+        st.markdown("""
+        The weighted rank is computed as follows:
+
+        1. **Rank of # of Territories b/w 97%-103%**: Multiply by 0.3 and consider the range from high (H) to low (L).
+        2. **Rank of # of Territories b/w 99%-101%**: Multiply by 0.2 and consider the range from high (H) to low (L).
+        3. **Rank of Standard Deviation (Std Dev)**: Multiply by 0.1 and consider the range from low (L) to high (H).
+        4. **Rank of Goal Accuracy**: Multiply by 0.1 and consider the range from high (H) to low (L).
+        5. **Rank of each metric (divided by the total number of metrics)**: Multiply by 0.3 and consider the range from low (L) to high (H).
+
+        The final weighted rank is a combination of these components, with the last part adjusted by a multiplier that is the reciprocal of 30%.
+        
+        _correlation values for the metrics are converted to absolute before ranking_
+        """)
     #with c5:
     df_long = top_five_df[['Method','0% to 97%','97% to 99%','99% to 100%','100% to 103%','103% to ∞']]
     df_long = df_long.melt('Method', var_name='Category', value_name='Values')
@@ -292,7 +330,7 @@ def visuals_1():
         fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
         st.plotly_chart(fig,use_container_width=True)     
     with split2:
-        comb_sel2 = st.radio('Y Axis -  :',top_five_df['Method'].unique(),key='rk3',horizontal=True)
+        comb_sel2 = st.radio('Y Axis -  :',top_five_df['Method'].unique(),key='rk3',horizontal=True,index=2)
         comb_sel2 = comb_sel2.replace(' ','_')
         metr_sel2 = st.radio('X Axis-',ss['list_of_metrics'],key='rk4',horizontal=True)
         fig = px.scatter(
@@ -327,28 +365,8 @@ def visuals_1():
         fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
         st.plotly_chart(fig,use_container_width=True) 
 
-    st.markdown('---')
-    st.subheader('Metric V Metric Corelation-')
-    metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'],horizontal=True)
-    metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'],horizontal=True)
-
-    #graph number 2- 
-    fig  = px.scatter(
-        data_frame = globals()[comb_sel1+'_terr_df'],
-        x = metr_sel_1, #pick a metric
-        y = metr_sel_2,
-        #color_discrete_sequence=['cyan'],
-        trendline='ols',
-        trendline_color_override = 'orange',
-        title = metr_sel_1 + ' vs ' +metr_sel_2
-    )
-    # For R Squared - 
-    results = px.get_trendline_results(fig)
-    r_squared = results.iloc[0]["px_fit_results"].rsquared
-    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
-    fig.update_layout(title_font_size=20,title_x=0.45, title_xref='paper')
-    st.plotly_chart(fig,use_container_width=True)                      
-
+    
+                     
 #4. show_res_1 - Controller Function | Happens After Processing already complete 
 # Calls visuals_1 when required 
 def show_res_1():

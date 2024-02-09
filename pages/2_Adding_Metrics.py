@@ -3,6 +3,7 @@ from streamlit import session_state as ss
 import pandas as pd
 from decimal import Decimal
 import numpy as np
+import plotly.express as px
 
 st.set_page_config(
     page_title="GST-Constraints",
@@ -64,6 +65,30 @@ st.markdown("<h1 style='text-align: center;'>Goal Setting Weight Ranges</h1>", u
 st.markdown("<h4 style='text-align: left;'>Please Enter Minimum , Maximum and Increment values for your weights \
             that you would like to test in your exercise</h4>",unsafe_allow_html=True)
 st.write("Please Make Sure to pick ranges judicously!")
+st.markdown("---")
+g1,g2,g3 = st.columns(3)
+with g2:
+    #add graph here -
+    st.subheader('Metric V Metric Corelation-')
+    metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'],horizontal=True)
+    metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'],horizontal=True,index=1)
+
+    #graph number 2- 
+    fig  = px.scatter(
+        data_frame = ss['excel_file_df'],
+        x = metr_sel_1, #pick a metric
+        y = metr_sel_2,
+        #color_discrete_sequence=['cyan'],
+        trendline='ols',
+        trendline_color_override = 'orange',
+        title = metr_sel_1 + ' vs ' +metr_sel_2
+    )
+    # For R Squared - 
+    results = px.get_trendline_results(fig)
+    r_squared = results.iloc[0]["px_fit_results"].rsquared
+    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+    fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
+    st.plotly_chart(fig,use_container_width=True) 
 
 st.markdown("---")
 
