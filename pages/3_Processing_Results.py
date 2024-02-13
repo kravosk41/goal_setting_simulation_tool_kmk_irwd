@@ -206,10 +206,10 @@ def visuals_1():
         top_five_df[col+'_r'] = top_five_df[col+'_abs_corr'].rank(method='dense', ascending=True)
     ### Base Formula ###
     #### Non Changing Fractions ####
-    top_five_df['WT_RANK'] = top_five_df['Total_r']*0.3 + top_five_df['CAT_C_r']*0.2 + top_five_df['Standard_Deviation_r']*0.1
+    top_five_df['WT_RANK'] = top_five_df['Total_r']*0.3 + top_five_df['CAT_C_r']*0.2 + top_five_df['Standard_Deviation_r']*0.1 + top_five_df['Goals_Accuracy_r']*0.1
     #### Changing Fractions ####
     for metric in ss['list_of_metrics']:
-        top_five_df['WT_RANK'] += top_five_df[metric] * (0.3 / len(ss['list_of_metrics']))
+        top_five_df['WT_RANK'] += top_five_df[metric+'_r'] * (0.3 / len(ss['list_of_metrics']))
 
     ### Dropping Redundant Columns ###
     top_five_df.drop(columns=[c for c in top_five_df.columns if c.endswith('_r') or c.endswith('_abs_corr')],inplace=True)

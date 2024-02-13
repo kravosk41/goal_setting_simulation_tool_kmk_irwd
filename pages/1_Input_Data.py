@@ -57,7 +57,7 @@ with st.expander("Download Template ☝️"):
 
     options = list(range(1, 11))
     ss.selected_option = st.selectbox('How Many Metrics Do you have ?', options)
-    if ss.selected_option != 1:
+    if ss.selected_option > 0:
         list_of_weight_names = []
         for i in range(ss.selected_option):
             # Create a text input box for each metric
