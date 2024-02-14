@@ -37,7 +37,7 @@ def add_logo():
 
 add_logo()
 
-
+e = 0.0000001 # epsilon
 if 'gen_rag' not in ss:
     ss.gen_rag = False
 if 'metric_df' not in ss:
@@ -169,7 +169,7 @@ if ss.ex_up and ss.list_of_metrics:
                 globals()[weight_range_var] = np.round(
                     np.arange(
                         constraints[0],
-                        constraints[1],
+                        constraints[1]+e,
                         constraints[2],
                     ),
                     rf
