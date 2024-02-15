@@ -154,7 +154,31 @@ def process_1():
     #Pulling Correlation Metrics - 
     comb_pd1[[col+'_corr' for col in ss['list_of_metrics']]+['Goals_Accuracy']] = comb_pd1['corr_dict'].apply(pd.Series)
     comb_pd1 = comb_pd1.drop(columns='corr_dict')
-    
+
+    #Apply Ranking here TODO
+    ### Adding Ranks ### -
+    comb_pd1['Total_r'] = comb_pd1['Total'].rank(method='dense',ascending=False)
+    comb_pd1['CAT_C_r'] = comb_pd1['CAT_C'].rank(method='dense',ascending=False)
+    comb_pd1['Standard_Deviation_r'] = comb_pd1['Standard_Deviation'].rank(method='dense',ascending=True)
+    comb_pd1['Goals_Accuracy_r'] = comb_pd1['Goals_Accuracy'].rank(method='dense',ascending=False)
+    ### Adding Ranks for Metric Corr columns - ###
+    for col in ss['list_of_metrics']:
+        comb_pd1[col+'_abs_corr'] = comb_pd1[col+'_corr'].abs() #converting to abs
+        comb_pd1[col+'_r'] = comb_pd1[col+'_abs_corr'].rank(method='dense', ascending=True)
+    ### Base Formula ###
+    #### Non Changing Fractions ####
+    comb_pd1['WT_RANK'] = comb_pd1['Total_r']*0.3 + comb_pd1['CAT_C_r']*0.2 + comb_pd1['Standard_Deviation_r']*0.1 \
+        + comb_pd1['Goals_Accuracy_r']*0.1
+    #### Changing Fractions ####
+    for metric in ss['list_of_metrics']:
+        comb_pd1['WT_RANK'] += comb_pd1[metric+'_r'] * (0.3 / len(ss['list_of_metrics']))
+
+    ### Dropping Redundant Columns ###
+    comb_pd1.drop(columns=[c for c in comb_pd1.columns if c.endswith('_r') or c.endswith('_abs_corr')],inplace=True)
+
+    ### Sorting on Final Weighted Rank ###
+    comb_pd1.sort_values('WT_RANK',inplace=True)
+
     #Store result
     ss['objective_df_pd'] = comb_pd1 
     ss['actual_combinations'] = comb_pd.shape[0]
@@ -194,33 +218,7 @@ def visuals_1():
 
     # Isolate top 5 and Prepare Data - 
     #new ranking method-
-    top_five_df = ss['objective_df_pd'].copy()
-    ### Adding Ranks ### -
-    top_five_df['Total_r'] = top_five_df['Total'].rank(method='dense',ascending=False)
-    top_five_df['CAT_C_r'] = top_five_df['CAT_C'].rank(method='dense',ascending=False)
-    top_five_df['Standard_Deviation_r'] = top_five_df['Standard_Deviation'].rank(method='dense',ascending=True)
-    top_five_df['Goals_Accuracy_r'] = top_five_df['Goals_Accuracy'].rank(method='dense',ascending=False)
-    ### Adding Ranks for Metric Corr columns - ###
-    for col in ss['list_of_metrics']:
-        top_five_df[col+'_abs_corr'] = top_five_df[col+'_corr'].abs() #converting to abs
-        top_five_df[col+'_r'] = top_five_df[col+'_abs_corr'].rank(method='dense', ascending=True)
-    ### Base Formula ###
-    #### Non Changing Fractions ####
-    top_five_df['WT_RANK'] = top_five_df['Total_r']*0.3 + top_five_df['CAT_C_r']*0.2 + top_five_df['Standard_Deviation_r']*0.1 + top_five_df['Goals_Accuracy_r']*0.1
-    #### Changing Fractions ####
-    for metric in ss['list_of_metrics']:
-        top_five_df['WT_RANK'] += top_five_df[metric+'_r'] * (0.3 / len(ss['list_of_metrics']))
-
-    ### Dropping Redundant Columns ###
-    top_five_df.drop(columns=[c for c in top_five_df.columns if c.endswith('_r') or c.endswith('_abs_corr')],inplace=True)
-
-    ### Sorting on Final Weighted Rank ###
-    top_five_df.sort_values('WT_RANK',inplace=True)
-
-    # to get top 5 contenders - 
-    # top_five_df = ss['objective_df_pd'].sort_values(by = ['Total','CAT_C','Standard_Deviation'],
-    #                                                 ascending=[False,False,True],ignore_index=True)
-    top_five_df = top_five_df.head(5).copy() #This could be controlled by an argument in the future
+    top_five_df = ss['objective_df_pd'].head(5).copy()#This could be controlled by an argument in the future
     top_five_df['Method'] = ['M' + str(i) for i in range(1, len(top_five_df) + 1)]
     #rname - 
     top_five_df = top_five_df.rename(columns={
@@ -257,7 +255,10 @@ def visuals_1():
     #     c4.write("")
 
     #c4.dataframe(top_five_df[['Comb_Name'] + ss['list_of_metrics']],hide_index=True) # limited view
-    st.dataframe(top_five_df,hide_index = True,use_container_width=True)
+    col_list2 = list(top_five_df.columns)
+    col_list2 = col_list2[-2:] + col_list2[:-2]
+    st.dataframe(top_five_df,hide_index = True,use_container_width=True,column_order=col_list2,
+                 column_config={'Standard_Deviation':'Standard_Deviation_Attainment','WT_RANK':'Final Rank','Method':'Methodology'})
     with st.expander(':information_source: Info on Ranking Methodology  ↙️'):
         st.subheader('Weighted Rank Calcualtion')
         st.markdown("""
@@ -283,7 +284,7 @@ def visuals_1():
             facet_col="Category",
             facet_col_wrap=5,
             text='Values',
-            labels={"Values": "Values", "Category": "Category", "Method": "Method"},
+            labels={"Values": "# Territories", "Category": "Category", "Method": "Method"},
             color_discrete_map ={'M1': '#7cb342','M2':'#23dedb','M3':'#4c57ba','M4':'#f57f17','M5':'#b71c1c'},
             title="Attainment Distribution Chart")
 
@@ -305,13 +306,17 @@ def visuals_1():
             #color_discrete_sequence=['blue'],
             trendline='ols',
             trendline_color_override = 'orange',
-            title=metr_sel1 + ' vs Attainment for ' + comb_sel1
+            title=metr_sel1 + ' vs Attainment for ' + comb_sel1,
         )
         fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
         fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+        if ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel1)] != "":
+            fig.add_annotation(x=0.5,y=-0.3,
+                            text=f"Simulation Period for {metr_sel1} : {ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel1)]}",
+                            xref="paper",yref="paper",showarrow=False,font={'size':16})
         st.plotly_chart(fig,use_container_width=True)
         #Chart 2-
         fig = px.scatter(
@@ -323,7 +328,7 @@ def visuals_1():
             trendline_color_override = 'orange',
             title='Goal Accuracy'
         )
-        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR + str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR + str(ss.YEAR)[-2:] + ' Final Quota')
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
@@ -347,6 +352,10 @@ def visuals_1():
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
         fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+        if ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel2)] != "":
+            fig.add_annotation(x=0.5,y=-0.3,
+                            text=f"Simulation Period for {metr_sel2} : {ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel2)]}",
+                            xref="paper",yref="paper",showarrow=False,font={'size':16})
         st.plotly_chart(fig,use_container_width=True)
         #Chart 2-
         fig = px.scatter(
@@ -358,7 +367,7 @@ def visuals_1():
             trendline_color_override = 'orange',
             title='Goal Accuracy'
         )
-        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR + str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR + str(ss.YEAR)[-2:] + ' Final Quota')
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
@@ -371,9 +380,14 @@ def visuals_1():
 # Calls visuals_1 when required 
 def show_res_1():
     #If results are calculated show the following -
-    st.markdown("<h2 style='text-align: center;'>Objective Result -</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>Result -</h2>", unsafe_allow_html=True)
     ph1,ph2,ph3 = st.columns([1,6,1])
-    st.dataframe(ss['style_df_main'],height= 220,use_container_width=True,hide_index=True) #This is calc in process_1
+    col_list = list(ss['style_df_main'].columns)
+    col_list = [col_list[-1]] + col_list[:-1]
+
+    st.dataframe(ss['style_df_main'],height= 220,use_container_width=True,hide_index=True,column_order=col_list,
+                 column_config={'Standard_Deviation':'Standard_Deviation_Attainment',
+                                'WT_RANK':'Final Rank'}) #This is calc in process_1
     with st.expander("Get Help on Column Names ☝️"):
         st.markdown("""
         ### Legend

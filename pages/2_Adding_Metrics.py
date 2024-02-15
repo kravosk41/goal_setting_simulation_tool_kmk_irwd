@@ -4,6 +4,7 @@ import pandas as pd
 from decimal import Decimal
 import numpy as np
 import plotly.express as px
+import datetime
 
 st.set_page_config(
     page_title="GST-Constraints",
@@ -49,6 +50,11 @@ elif 'range_constraints_list' not in ss:
     #ss['range_constraints_list'] = None
     ss['range_constraints_list'] = [[0.0, 0.0, 0.0] for _ in range(ss['number_of_metrics'])]
 
+if 'number_of_metrics' not in ss:
+    pass
+elif 'simulation_dates' not in ss:
+    ss['simulation_dates'] = ["" for _ in range(ss['number_of_metrics'])]
+
 if 'items_list' not in ss:
     ss['items_list'] = None
 if 'submit_2' not in ss:
@@ -66,54 +72,62 @@ st.markdown("<h4 style='text-align: left;'>Please Enter Minimum , Maximum and In
             that you would like to test in your exercise</h4>",unsafe_allow_html=True)
 st.write("Please Make Sure to pick ranges judicously!")
 st.markdown("---")
-g1,g2,g3 = st.columns(3)
-with g2:
-    #add graph here -
-    st.subheader('Metric V Metric Corelation-')
-    metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'],horizontal=True)
-    metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'],horizontal=True,index=1)
+g1,g2,g3 = st.columns([1,5,1])
+# If excel is uploaded and submitted
+if ss.ex_up and ss.list_of_metrics:
+    with g2:
+        #add graph here -
+        st.subheader('Metric V Metric Corelation-')
+        metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'],horizontal=True)
+        metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'],horizontal=True,index=1)
 
-    #graph number 2- 
-    fig  = px.scatter(
-        data_frame = ss['excel_file_df'],
-        x = metr_sel_1, #pick a metric
-        y = metr_sel_2,
-        #color_discrete_sequence=['cyan'],
-        trendline='ols',
-        trendline_color_override = 'orange',
-        title = metr_sel_1 + ' vs ' +metr_sel_2
-    )
-    # For R Squared - 
-    results = px.get_trendline_results(fig)
-    r_squared = results.iloc[0]["px_fit_results"].rsquared
-    fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
-    fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
-    st.plotly_chart(fig,use_container_width=True) 
+        #graph number 2- 
+        fig  = px.scatter(
+            data_frame = ss['excel_file_df'],
+            x = metr_sel_1, #pick a metric
+            y = metr_sel_2,
+            #color_discrete_sequence=['cyan'],
+            trendline='ols',
+            trendline_color_override = 'orange',
+            title = metr_sel_1 + ' vs ' +metr_sel_2
+        )
+        # For R Squared - 
+        results = px.get_trendline_results(fig)
+        r_squared = results.iloc[0]["px_fit_results"].rsquared
+        fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper')
+        st.plotly_chart(fig,use_container_width=True)
+        st.markdown("---") 
 
-st.markdown("---")
 
 # If excel is uploaded and submitted
 if ss.ex_up and ss.list_of_metrics:
 
     #SECTION 1 - User Inputs the metric constraints - 
 
-    col1, col2, col3, col4 = st.columns(4,gap='medium')
+    col1, col2, col3, col4, col5 = st.columns(5,gap='medium')
     col1.markdown("<h3 style='text-align: center;'>Metric Name</h3>", unsafe_allow_html=True)
-    col2.markdown("<h3 style='text-align: center;'>Min</h3>", unsafe_allow_html=True)
-    col3.markdown("<h3 style='text-align: center;'>Max</h3>", unsafe_allow_html=True)
-    col4.markdown("<h3 style='text-align: center;'>Increment</h3>", unsafe_allow_html=True)
+    col2.markdown("<h3 style='text-align: center;'>Min %</h3>", unsafe_allow_html=True)
+    col3.markdown("<h3 style='text-align: center;'>Max %</h3>", unsafe_allow_html=True)
+    col4.markdown("<h3 style='text-align: center;'>Increment %</h3>", unsafe_allow_html=True)
+    col5.markdown("<h3 style='text-align: center;'>Time Period</h3>", unsafe_allow_html=True)
 
 
     range_constraints_list = []
-    
+    simulation_dates = []
     for i in range(ss['number_of_metrics']):
         col1.markdown(f"<h1 style='text-align: center; padding: 17px;'>{str(ss['list_of_metrics'][i])}</h1>", unsafe_allow_html=True)
         min_value = col2.number_input(label=' ',key = f'Min Value for Metric {i+1}', min_value=0.0, max_value=100.0, step=1.0,value=ss['range_constraints_list'][i][0]*100)
         max_value = col3.number_input(label=' ',key = f'Max Value for Metric {i+1}', min_value=0.0, max_value=100.0, step=1.0,value=ss['range_constraints_list'][i][1]*100)
         increment_value = col4.number_input(label=' ',key = f'Increment {i+1} ', min_value=0.0, max_value=10.0, step=1.0,value=ss['range_constraints_list'][i][2]*100)
+        if (ss['simulation_dates'][i] == ""): #if default value then
+            sim_date = col5.text_input(label=' ',key=f'Date {i+1}',placeholder='(mm/dd/yy) - (mm/dd/yy)')
+        else:
+            sim_date = col5.text_input(label=' ',key=f'Date {i+1}',value=ss['simulation_dates'][i])
         
         # Add the user input to the list of metrics and range constraints
         range_constraints_list.append([min_value/100, max_value/100, increment_value/100])
+        simulation_dates.append(sim_date)
 
     st.markdown("---")
 
@@ -159,6 +173,8 @@ if ss.ex_up and ss.list_of_metrics:
             st.write("You have 0 in your constraints !")
         elif ss['metric_df'].duplicated('Metric Name').any(): #Duplicate Metric Name
             st.write("Duplicate Metric Name Found!")
+        elif (ss['metric_df']['Max'].sum() < 1.0) or (ss['metric_df']['Min'].sum() > 1.0):
+            st.write("No Combination Will Equate to 100%!")
         else:
             #Code To Create Range -
             items_list = []
@@ -183,7 +199,7 @@ if ss.ex_up and ss.list_of_metrics:
                 len_list.append(len(item))
             
             st.warning('Please note: You must submit your inputs before you start processing results',icon='👋')
-            st.write("Number of Possible % Values for each range : ",str(len_list))
+            #st.write("Number of Possible % Values for each range : ",str(len_list))
             st.write("Total Possible Combinations Pre 100% Sum Constraint : ",f'{comb_counter:,}')
             if comb_counter >= 1_000_000_000:
                 st.error("Too many possible combinations, reconsider metric ranges ? ",icon='🚨')
@@ -198,6 +214,7 @@ if ss.ex_up and ss.list_of_metrics:
                 ss.submit_2 = True
                 ss['items_list'] = items_list
                 ss['comb_counter'] = comb_counter
+                ss['simulation_dates']= simulation_dates
                 st.write(f"{comb_counter:,} combinations ready to filter and process !")
                 ss.start_filter = False #to prevent auto rerun of submission of new numbers !
                 ss.pro_com = False # To make sure process reruns if already run before

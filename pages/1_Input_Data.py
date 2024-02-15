@@ -2,6 +2,7 @@ import streamlit as st
 from streamlit import session_state as ss
 import pandas as pd
 import io
+import datetime
 
 st.set_page_config(
     page_title="Upload Raw Data",
@@ -41,6 +42,11 @@ if 'download_format_button' not in ss:
 if 'selected_option' not in ss:
     ss.selected_option = None
 
+if 'YEAR' not in ss:
+    ss.YEAR = datetime.date.today().year
+if 'QTR' not in ss:
+    ss.QTR = 'Q1'
+
 st.markdown(
     "<h1 style='text-align: center;'>Goal Setting Simulation Tool</h1>", 
     unsafe_allow_html=True
@@ -48,15 +54,29 @@ st.markdown(
 
 st.markdown("<h4 style='text-align: left;'>The Following tool can be used to find the best possible combination of weights supported \
              by key metrics for the purpose of goal setting</h4>",unsafe_allow_html=True)
-#st.markdown("---")
+c1,c2 = st.columns(2)
+ss.QTR = c1.select_slider(label='Quarter',options = ['Q1','Q2','Q3','Q4'],label_visibility='visible',help='Select Quarter',value=ss.QTR)
+ss.YEAR = c2.select_slider(label='Year',options = [yr for yr in range(2020,2025)],label_visibility='visible',help='Select Year',value=ss.YEAR)
+
+st.markdown("---")
+st.subheader("Upload Raw Data ")
+st.write("Please Upload raw data in the correct format for smooth processing")
+
+if 'ex_up' not in ss:
+    ss.ex_up = False
+if 'file' not in ss:
+    ss.file = None
 
 
+#To facilitate upload of excel file - 
+uploaded_file = st.file_uploader("Choose an Excel file", type='xlsx')
 with st.expander("Download Template ☝️"):
     st.write("Enter the number of Weight Metrics you have in your project \
                 followed by the their names, the download button will give you a blank excel to populate your data in !")
 
     options = list(range(1, 11))
-    ss.selected_option = st.selectbox('How Many Metrics Do you have ?', options)
+    #ss.selected_option = st.selectbox('How Many Metrics Do you have ?', options)
+    ss.selected_option = st.select_slider(label='How Many Metrics Do you have ?', options=[i for i in range(1,11)])
     if ss.selected_option > 0:
         list_of_weight_names = []
         for i in range(ss.selected_option):
@@ -77,21 +97,6 @@ with st.expander("Download Template ☝️"):
                 data=buffer,
                 file_name="GST_input.xlsx",
                 mime="application/vnd.ms-excel")
-
-
-st.markdown("---")
-st.subheader("Upload Raw Data ")
-st.write("Please Upload raw data in the correct format for smooth processing")
-
-if 'ex_up' not in ss:
-    ss.ex_up = False
-if 'file' not in ss:
-    ss.file = None
-
-
-#To facilitate upload of excel file - 
-uploaded_file = st.file_uploader("Choose an Excel file", type='xlsx')
-
 if uploaded_file is not None:
     ss.ex_up = True
     ss['file'] = uploaded_file
@@ -100,7 +105,7 @@ st.markdown("---")
 if ss.ex_up:
     data = pd.read_excel(ss['file'])
     nation_goal_value = data.iloc[0,-1]
-    st.markdown(f"<h5 style='text-align: center;'>National Level Goal : {nation_goal_value:,.2f}</h5>", unsafe_allow_html=True)
+    st.markdown(f"<h5 style='text-align: center;'>{ss.YEAR} {ss.QTR} National Level Goal : {nation_goal_value:,.2f}</h5>", unsafe_allow_html=True)
     data.drop(columns=['NATION_GOAL'],inplace=True)
 
     #Number of metrics count here -
@@ -111,7 +116,8 @@ if ss.ex_up:
     ###################################################
 
     st.subheader("Received Raw Data:")
-    st.dataframe(data,height= 180,hide_index=True)
+    st.dataframe(data,height= 180,width=800,hide_index=True,
+                 column_config={'Actuals':f'{ss.YEAR} {ss.QTR} Actuals'})
 
     st.markdown("---")
     st.markdown(f"<h4 style='text-align: left;'>Validations : </h4>", unsafe_allow_html=True)
