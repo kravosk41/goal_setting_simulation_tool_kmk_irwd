@@ -177,7 +177,9 @@ def process_1():
     comb_pd1.drop(columns=[c for c in comb_pd1.columns if c.endswith('_r') or c.endswith('_abs_corr')],inplace=True)
 
     ### Sorting on Final Weighted Rank ###
-    comb_pd1.sort_values('WT_RANK',inplace=True)
+    comb_pd1['Final_Rank'] = comb_pd1['WT_RANK'].rank(method='first',ascending=True)
+    comb_pd1= comb_pd1.sort_values('Final_Rank',ascending=True)
+    comb_pd1.drop(columns='WT_RANK',inplace=True)
 
     #Store result
     ss['objective_df_pd'] = comb_pd1 
@@ -187,7 +189,7 @@ def process_1():
     
     ss['style_df_main'] = ss['objective_df_pd'].copy() #Creating a Separate Copy Just for printing 
     #sorting it by required order - 
-    ss['style_df_main'].sort_values(by = ['Total','CAT_C','Standard_Deviation'],ascending=[False,False,True],ignore_index=True,inplace=True)
+    #ss['style_df_main'].sort_values(by = ['Total','CAT_C','Standard_Deviation'],ascending=[False,False,True],ignore_index=True,inplace=True)
     #Applying Formatting Fixes -
     for col in ['Min_Att','Max_Att','Avg_Att']:
         ss['style_df_main'][col] = ss['style_df_main'][col].round(2)
@@ -219,6 +221,7 @@ def visuals_1():
     # Isolate top 5 and Prepare Data - 
     #new ranking method-
     top_five_df = ss['objective_df_pd'].head(5).copy()#This could be controlled by an argument in the future
+    top_five_df.drop(columns='Final_Rank',inplace = True)
     top_five_df['Method'] = ['M' + str(i) for i in range(1, len(top_five_df) + 1)]
     #rname - 
     top_five_df = top_five_df.rename(columns={
@@ -256,9 +259,9 @@ def visuals_1():
 
     #c4.dataframe(top_five_df[['Comb_Name'] + ss['list_of_metrics']],hide_index=True) # limited view
     col_list2 = list(top_five_df.columns)
-    col_list2 = col_list2[-2:] + col_list2[:-2]
+    col_list2 = [col_list2[-1]] + col_list2[:-1]
     st.dataframe(top_five_df,hide_index = True,use_container_width=True,column_order=col_list2,
-                 column_config={'Standard_Deviation':'Standard_Deviation_Attainment','WT_RANK':'Final Rank','Method':'Methodology'})
+                 column_config={'Standard_Deviation':'Std_Dev_Att','Method':'Methodology'})
     with st.expander(':information_source: Info on Ranking Methodology  ↙️'):
         st.subheader('Weighted Rank Calcualtion')
         st.markdown("""
@@ -315,7 +318,7 @@ def visuals_1():
         fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
         if ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel1)] != "":
             fig.add_annotation(x=0.5,y=-0.3,
-                            text=f"Simulation Period for {metr_sel1} : {ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel1)]}",
+                            text=f"Baseline Period for {metr_sel1} : {ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel1)]}",
                             xref="paper",yref="paper",showarrow=False,font={'size':16})
         st.plotly_chart(fig,use_container_width=True)
         #Chart 2-
@@ -354,7 +357,7 @@ def visuals_1():
         fig.add_annotation(x=0.95,y=0.95,text=f"R²: {r_squared:.5f}",showarrow=False,font={'size':25,'color':'black'},xref="paper",yref="paper",align="right",bgcolor="#ff7f0e")
         if ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel2)] != "":
             fig.add_annotation(x=0.5,y=-0.3,
-                            text=f"Simulation Period for {metr_sel2} : {ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel2)]}",
+                            text=f"Baseline Period for {metr_sel2} : {ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel2)]}",
                             xref="paper",yref="paper",showarrow=False,font={'size':16})
         st.plotly_chart(fig,use_container_width=True)
         #Chart 2-
@@ -386,8 +389,8 @@ def show_res_1():
     col_list = [col_list[-1]] + col_list[:-1]
 
     st.dataframe(ss['style_df_main'],height= 220,use_container_width=True,hide_index=True,column_order=col_list,
-                 column_config={'Standard_Deviation':'Standard_Deviation_Attainment',
-                                'WT_RANK':'Final Rank'}) #This is calc in process_1
+                 column_config={'Standard_Deviation':'Std_Dev_Att',
+                                'Final_Rank':'Final Rank'}) #This is calc in process_1
     with st.expander("Get Help on Column Names ☝️"):
         st.markdown("""
         ### Legend
