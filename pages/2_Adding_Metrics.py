@@ -44,15 +44,11 @@ if 'gen_rag' not in ss:
 if 'metric_df' not in ss:
     ss['metric_df'] = None #you can set this to pd.DataFrame(), but in the change detection only keep - ss['metric_df'].equals(summary_df)
 
-if 'number_of_metrics' not in ss:
-    pass
-elif 'range_constraints_list' not in ss:
+if ss.number_of_metrics != None and 'range_constraints_list' not in ss:
     #ss['range_constraints_list'] = None
     ss['range_constraints_list'] = [[0.0, 0.0, 0.0] for _ in range(ss['number_of_metrics'])]
 
-if 'number_of_metrics' not in ss:
-    pass
-elif 'simulation_dates' not in ss:
+if ss.number_of_metrics != None and  'simulation_dates' not in ss:
     ss['simulation_dates'] = ["" for _ in range(ss['number_of_metrics'])]
 
 if 'items_list' not in ss:
@@ -77,7 +73,7 @@ g1,g2,g3 = st.columns([1,5,1])
 if ss.ex_up and ss.list_of_metrics:
     with g2:
         #add graph here -
-        st.subheader('Metric V Metric Corelation-')
+        st.subheader('Metric vs Metric Correlation-')
         metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'],horizontal=True)
         metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'],horizontal=True,index=1)
 
@@ -128,7 +124,15 @@ if ss.ex_up and ss.list_of_metrics:
         # Add the user input to the list of metrics and range constraints
         range_constraints_list.append([min_value/100, max_value/100, increment_value/100])
         simulation_dates.append(sim_date)
-
+    
+    # adding footnotes
+    st.markdown("---")
+    foot_note_string = "1. If you want to fix the value of a metric, the Minimum will be the fixed value and Maximum would be (Minimum value+0.0001) with Increment value as 1%. <br> \
+        For eg: One of the metric is PR13 and you want to exclude that metric, i.e it should have 0% weight, the Minimum value will be 0%, Maximum value will be 0.0001% and Increment value would be 1%.<br> \
+        2. The Time Period field is optional. It is for display purposes. <br> \
+        3. The sum of Minimum value for all metrics should be less than 100% and sum of Maximum value for all metrics should be greater than 100%. Kindly ensure that the Minimum and Maximum values are selected appropriately "
+    st.markdown("""<style>.foot_note {font-size: 0.8em;font-style: italic;margin-left: 20px; font-weight: lighter;}</style>""",unsafe_allow_html=True)
+    st.markdown('<p class="foot_note">'+foot_note_string+'</p>',unsafe_allow_html=True)
     st.markdown("---")
 
 
@@ -174,7 +178,7 @@ if ss.ex_up and ss.list_of_metrics:
         elif ss['metric_df'].duplicated('Metric Name').any(): #Duplicate Metric Name
             st.write("Duplicate Metric Name Found!")
         elif (ss['metric_df']['Max'].sum() < 1.0) or (ss['metric_df']['Min'].sum() > 1.0):
-            st.write("No Combination Will Equate to 100%!")
+            st.write(f"No Combination Will Equate to 100%! Max Sum : {ss['metric_df']['Max'].sum()*100} Min Sum : {ss['metric_df']['Min'].sum()*100}")
         else:
             #Code To Create Range -
             items_list = []

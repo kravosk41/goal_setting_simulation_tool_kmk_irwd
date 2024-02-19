@@ -46,21 +46,29 @@ if 'YEAR' not in ss:
     ss.YEAR = datetime.date.today().year
 if 'QTR' not in ss:
     ss.QTR = 'Q1'
+if 'TYPE' not in ss:
+    ss.TYPE = 'Quarterly'
 
 st.markdown(
     "<h1 style='text-align: center;'>Goal Setting Simulation Tool</h1>", 
     unsafe_allow_html=True
 )
 
-st.markdown("<h4 style='text-align: left;'>The Following tool can be used to find the best possible combination of weights supported \
-             by key metrics for the purpose of goal setting</h4>",unsafe_allow_html=True)
-c1,c2 = st.columns(2)
-ss.QTR = c1.select_slider(label='Quarter',options = ['Q1','Q2','Q3','Q4'],label_visibility='visible',help='Select Quarter',value=ss.QTR)
-ss.YEAR = c2.select_slider(label='Year',options = [yr for yr in range(2020,2025)],label_visibility='visible',help='Select Year',value=ss.YEAR)
+# Fix RETENSION ISSUE FOR SLIDERS
+st.markdown("<h4 style='text-align: left;'>Select the Goal Setting Simulation Model Time Period</h4>",unsafe_allow_html=True)
+c1,c2,c3 = st.columns(3)
+ss.TYPE = c1.selectbox(label='Type',options=['Quarterly','Trimesterly','Semesterly'],help='Select Anaysis Period Type',key='TYPE_v',index=['Quarterly','Trimesterly','Semesterly'].index(ss.TYPE))
+with c2:
+    if ss.TYPE == 'Quarterly':
+       ss.QTR = st.selectbox(label='Quarter',options = ['Q1','Q2','Q3','Q4'],label_visibility='visible',help='Select Quarter',key='QTR_v')
+    elif ss.TYPE == 'Trimesterly':
+        ss.QTR= st.selectbox(label='Trimester',options = ['T1','T2','T3'],label_visibility='visible',help='Select Trimester',key='QTR_v')
+    elif ss.TYPE == 'Semesterly':
+        ss.QTR= st.selectbox(label='Semester',options = ['S1','S2'],label_visibility='visible',help='Select Semester',key='QTR_v')
+ss.YEAR = c3.selectbox(label='Year',options=[yr for yr in range(2020,2031)],help='Select Year',key='YEAR_v')
 
 st.markdown("---")
-st.subheader("Upload Raw Data ")
-st.write("Please Upload raw data in the correct format for smooth processing")
+st.subheader("Upload Input Data ")
 
 if 'ex_up' not in ss:
     ss.ex_up = False
@@ -70,6 +78,10 @@ if 'file' not in ss:
 
 #To facilitate upload of excel file - 
 uploaded_file = st.file_uploader("Choose an Excel file", type='xlsx')
+st.markdown(
+    f"<h5 style='text-align: center;'>Simulation Period : {ss.QTR}'{str(ss.YEAR)[-2:]}</h5>", 
+    unsafe_allow_html=True
+)
 with st.expander("Download Template ☝️"):
     st.write("Enter the number of Weight Metrics you have in your project \
                 followed by the their names, the download button will give you a blank excel to populate your data in !")
@@ -92,7 +104,7 @@ with st.expander("Download Template ☝️"):
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             excel_format_df.to_excel(writer, sheet_name='Sheet1',index=False)
         
-        st.download_button("Download Excel format",
+        st.download_button("Download Input Data Template",
                 help="Click this to download the format for the raw data excel you must upload",
                 data=buffer,
                 file_name="GST_input.xlsx",
@@ -128,11 +140,26 @@ if ss.ex_up:
         st.write("No Null Values found :smile:")
         st.write('---')
         st.subheader('Input File Stats - ')
-        st.write("Total Number of Terrs : ",len(data['Territory_Number'].unique()))
-        st.write(f"Sum of Actuals : {data['Actuals'].sum():,.2f}")
-        for m in list_of_metrics:
-            st.write(f'{m} Sum : {data[m].sum():,.2f}')
-        st.write(f'Metrics Received : {list_of_metrics}')
+        # add table here
+        metrics = [m for m in list_of_metrics]
+        values = [f"{data[m].sum():,.2f}" for m in list_of_metrics]
+
+        # Create the 'Statistic' and 'Value' lists
+        statistic = [
+            'Total Number of Terrs',
+            f"{ss.QTR}'{str(ss.YEAR)[-2:]} National Goal",
+            'Sum of Actuals',
+            'Metrics Received'
+        ] + metrics
+
+        value = [
+            len(data['Territory_Number'].unique()),
+            f"{nation_goal_value:,.2f}",
+            f"{data['Actuals'].sum():,.2f}",
+            f"{list_of_metrics}"
+        ] + values
+
+        st.dataframe(data = {'Statistic' : statistic,'Value' : value},width=500)
 
     st.markdown("---")
 

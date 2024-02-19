@@ -88,8 +88,8 @@ def objective(*metric_weights,terr_flag=False):
     corr_dict={}
     for col in computation_cols:
         cor_var_name = col + '_cor'
-        corr_dict[cor_var_name] = work_df[col].corr(work_df['Attainment'])
-    corr_dict['Goals_Accuracy'] = work_df['Actuals'].corr(work_df['Final_Quota'])
+        corr_dict[cor_var_name] = (work_df[col].corr(work_df['Attainment'])**2)
+    corr_dict['Goals_Accuracy'] = (work_df['Actuals'].corr(work_df['Final_Quota'])**2)
 
     return_list = [
         work_df['Attainment'].std(),
@@ -205,8 +205,8 @@ def process_1():
     ss['style_df_main'] = ss['style_df_main'].rename(columns={
         'CAT_A':'0% to 97%',
         'CAT_B':'97% to 99%',
-        'CAT_C':'99% to 100%',
-        'CAT_D':'100% to 103%',
+        'CAT_C':'99% to 101%',
+        'CAT_D':'101% to 103%',
         'CAT_E':'103% to ∞',
         'Total':'97% to 103%'
     })
@@ -227,8 +227,8 @@ def visuals_1():
     top_five_df = top_five_df.rename(columns={
         'CAT_A':'0% to 97%',
         'CAT_B':'97% to 99%',
-        'CAT_C':'99% to 100%',
-        'CAT_D':'100% to 103%',
+        'CAT_C':'99% to 101%',
+        'CAT_D':'101% to 103%',
         'CAT_E':'103% to ∞',
         'Total':'97% to 103%'
     })
@@ -260,8 +260,15 @@ def visuals_1():
     #c4.dataframe(top_five_df[['Comb_Name'] + ss['list_of_metrics']],hide_index=True) # limited view
     col_list2 = list(top_five_df.columns)
     col_list2 = [col_list2[-1]] + col_list2[:-1]
+    #for column renaming-
+    rename_dict1 = {'Standard_Deviation':'Std_Dev_Att','Method':'Methodology'}
+    for metric in ss['list_of_metrics']:
+        key = metric+'_corr'
+        value = metric+'_Att_R²'
+        rename_dict1[key] = value
+
     st.dataframe(top_five_df,hide_index = True,use_container_width=True,column_order=col_list2,
-                 column_config={'Standard_Deviation':'Std_Dev_Att','Method':'Methodology'})
+                 column_config=rename_dict1)
     with st.expander(':information_source: Info on Ranking Methodology  ↙️'):
         st.subheader('Weighted Rank Calcualtion')
         st.markdown("""
@@ -278,7 +285,7 @@ def visuals_1():
         _correlation values for the metrics are converted to absolute before ranking_
         """)
     #with c5:
-    df_long = top_five_df[['Method','0% to 97%','97% to 99%','99% to 100%','100% to 103%','103% to ∞']]
+    df_long = top_five_df[['Method','0% to 97%','97% to 99%','99% to 101%','101% to 103%','103% to ∞']]
     df_long = df_long.melt('Method', var_name='Category', value_name='Values')
     fig = px.bar(df_long, 
             x="Method", 
@@ -320,6 +327,7 @@ def visuals_1():
             fig.add_annotation(x=0.5,y=-0.3,
                             text=f"Baseline Period for {metr_sel1} : {ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel1)]}",
                             xref="paper",yref="paper",showarrow=False,font={'size':16})
+        fig.update_layout(yaxis_title = 'Attainment (%)')
         st.plotly_chart(fig,use_container_width=True)
         #Chart 2-
         fig = px.scatter(
@@ -331,7 +339,7 @@ def visuals_1():
             trendline_color_override = 'orange',
             title='Goal Accuracy'
         )
-        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR + str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR + str(ss.YEAR)[-2:] + ' Final Quota')
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Final Quota')
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
@@ -359,6 +367,7 @@ def visuals_1():
             fig.add_annotation(x=0.5,y=-0.3,
                             text=f"Baseline Period for {metr_sel2} : {ss['simulation_dates'][ss['list_of_metrics'].index(metr_sel2)]}",
                             xref="paper",yref="paper",showarrow=False,font={'size':16})
+        fig.update_layout(yaxis_title = 'Attainment (%)')
         st.plotly_chart(fig,use_container_width=True)
         #Chart 2-
         fig = px.scatter(
@@ -370,7 +379,7 @@ def visuals_1():
             trendline_color_override = 'orange',
             title='Goal Accuracy'
         )
-        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR + str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR + str(ss.YEAR)[-2:] + ' Final Quota')
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Final Quota')
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
@@ -388,9 +397,15 @@ def show_res_1():
     col_list = list(ss['style_df_main'].columns)
     col_list = [col_list[-1]] + col_list[:-1]
 
+    #for column renaming-
+    rename_dict1 = {'Standard_Deviation':'Std_Dev_Att','Final_Rank':'Final Rank'}
+    for metric in ss['list_of_metrics']:
+        key = metric+'_corr'
+        value = metric+'_Att_R²'
+        rename_dict1[key] = value
+
     st.dataframe(ss['style_df_main'],height= 220,use_container_width=True,hide_index=True,column_order=col_list,
-                 column_config={'Standard_Deviation':'Std_Dev_Att',
-                                'Final_Rank':'Final Rank'}) #This is calc in process_1
+                 column_config=rename_dict1) #This is calc in process_1
     with st.expander("Get Help on Column Names ☝️"):
         st.markdown("""
         ### Legend
@@ -398,8 +413,8 @@ def show_res_1():
         | --- | --- |
         | CAT_A | 0% to 97% |
         | CAT_B | 97% to 99% |
-        | CAT_C | 99% to 100% |
-        | CAT_D | 100% to 103% |
+        | CAT_C | 99% to 101% |
+        | CAT_D | 101% to 103% |
         | CAT_E | 103% to ∞ |
         | Total | B + C + D |
         """,unsafe_allow_html=True)
