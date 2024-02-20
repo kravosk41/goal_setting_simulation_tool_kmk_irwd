@@ -101,7 +101,7 @@ if ss.ex_up and ss.list_of_metrics:
 
     #SECTION 1 - User Inputs the metric constraints - 
 
-    col1, col2, col3, col4, col5 = st.columns(5,gap='medium')
+    col1, col2, col3, col4, col5 = st.columns([2,1,1,1,1],gap='medium')
     col1.markdown("<h3 style='text-align: center;'>Metric Name</h3>", unsafe_allow_html=True)
     col2.markdown("<h3 style='text-align: center;'>Min %</h3>", unsafe_allow_html=True)
     col3.markdown("<h3 style='text-align: center;'>Max %</h3>", unsafe_allow_html=True)

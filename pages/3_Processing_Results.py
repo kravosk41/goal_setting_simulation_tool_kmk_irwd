@@ -203,11 +203,11 @@ def process_1():
 
     #adding renamed columns to from legend - 
     ss['style_df_main'] = ss['style_df_main'].rename(columns={
-        'CAT_A':'0% to 97%',
+        'CAT_A':'≤ 97%',
         'CAT_B':'97% to 99%',
         'CAT_C':'99% to 101%',
         'CAT_D':'101% to 103%',
-        'CAT_E':'103% to ∞',
+        'CAT_E':'> 103%',
         'Total':'97% to 103%'
     })
     #### END OF FORMAT FIXES ###
@@ -225,11 +225,11 @@ def visuals_1():
     top_five_df['Method'] = ['M' + str(i) for i in range(1, len(top_five_df) + 1)]
     #rname - 
     top_five_df = top_five_df.rename(columns={
-        'CAT_A':'0% to 97%',
+        'CAT_A':'≤ 97%',
         'CAT_B':'97% to 99%',
         'CAT_C':'99% to 101%',
         'CAT_D':'101% to 103%',
-        'CAT_E':'103% to ∞',
+        'CAT_E':'> 103%',
         'Total':'97% to 103%'
     })
 
@@ -285,7 +285,7 @@ def visuals_1():
         _correlation values for the metrics are converted to absolute before ranking_
         """)
     #with c5:
-    df_long = top_five_df[['Method','0% to 97%','97% to 99%','99% to 101%','101% to 103%','103% to ∞']]
+    df_long = top_five_df[['Method','≤ 97%','97% to 99%','99% to 101%','101% to 103%','> 103%']]
     df_long = df_long.melt('Method', var_name='Category', value_name='Values')
     fig = px.bar(df_long, 
             x="Method", 
@@ -339,7 +339,7 @@ def visuals_1():
             trendline_color_override = 'orange',
             title='Goal Accuracy'
         )
-        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Final Quota')
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Simulated Quota')
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
@@ -379,7 +379,7 @@ def visuals_1():
             trendline_color_override = 'orange',
             title='Goal Accuracy'
         )
-        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Final Quota')
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Simulated Quota')
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
@@ -411,11 +411,11 @@ def show_res_1():
         ### Legend
         | Column Name | Value |
         | --- | --- |
-        | CAT_A | 0% to 97% |
+        | CAT_A | ≤ 97% |
         | CAT_B | 97% to 99% |
         | CAT_C | 99% to 101% |
         | CAT_D | 101% to 103% |
-        | CAT_E | 103% to ∞ |
+        | CAT_E | > 103% |
         | Total | B + C + D |
         """,unsafe_allow_html=True)
     st.markdown("---")
