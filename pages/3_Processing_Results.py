@@ -406,7 +406,8 @@ def show_res_1():
     st.dataframe(ss['style_df_main'],height= 220,use_container_width=True,hide_index=True,column_order=col_list,
                  column_config=rename_dict1) #This is calc in process_1
     with st.expander("Get Help on Column Names ☝️"):
-        st.markdown("""
+        l1,l2,l3 = st.columns([1,5,1])
+        l2.markdown("""
         ### Legend
         | Column Name | Definition | Ideal Value | 
         | --- | --- | --- |
