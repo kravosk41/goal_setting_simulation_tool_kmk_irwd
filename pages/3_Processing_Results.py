@@ -278,11 +278,10 @@ def visuals_1():
         2. **Rank of # of Territories b/w 99%-101%**: Multiply by 0.2 and consider the range from high (H) to low (L).
         3. **Rank of Standard Deviation (Std Dev)**: Multiply by 0.1 and consider the range from low (L) to high (H).
         4. **Rank of Goal Accuracy**: Multiply by 0.1 and consider the range from high (H) to low (L).
-        5. **Rank of each metric (divided by the total number of metrics)**: Multiply by 0.3 and consider the range from low (L) to high (H).
+        5. **Rank of Metric vs Att R² value , (divided by the total number of metrics)**: Multiply by 0.3 and consider the range from low (L) to high (H).
 
         The final weighted rank is a combination of these components, with the last part adjusted by a multiplier that is the reciprocal of 30%.
         
-        _correlation values for the metrics are converted to absolute before ranking_
         """)
     #with c5:
     df_long = top_five_df[['Method','≤ 97%','97% to 99%','99% to 101%','101% to 103%','> 103%']]
@@ -409,14 +408,20 @@ def show_res_1():
     with st.expander("Get Help on Column Names ☝️"):
         st.markdown("""
         ### Legend
-        | Column Name | Value |
-        | --- | --- |
-        | CAT_A | ≤ 97% |
-        | CAT_B | 97% to 99% |
-        | CAT_C | 99% to 101% |
-        | CAT_D | 101% to 103% |
-        | CAT_E | > 103% |
-        | Total | B + C + D |
+        | Column Name | Definition | Ideal Value | 
+        | --- | --- | --- |
+        | Final Rank | Weighted Rank calculated to decide the best Goal Setting Methodology | Lower the Final Rank, better the methodology |
+        | Std_Dev_Att | It is the variance of Attainment across Territories. | Lower the Std_Dev_Att, better the methodology |
+        | Min_Att | Minimum Attainment amongst territories |  |
+        | Max_Att | Maximum Attainment amongst territories |  |
+        | Avg_Att | Average Attainment amongst territories |  |
+        | <= 97% | # territories with attainment <=97% | At 100% National Attainment, lower the # of territories in this range, better the methodology |
+        | 97% to 99% | # territories with attainment b/w 97% and 99% | At 100% National Attainment, # of territories should be greater than # of territories falling in 0% to 97% range |
+        | 99% to 101% | # territories with attainment b/w 99% and 101% | At 100% National Attainment, Maximum # of territories should fall in this category |
+        | 101% to 103% | # territories with attainment b/w 101% and 103% | At 100% National Attainment, # of territories should be greater than # of territories falling in 103% to infinite range |
+        | > 103% | # territories with attainment >103% | At 100% National Attainment, lower the # of territories in this range, better the methodology |
+        | Metric_Att_R² | Checks the relation b/w Attainment vs Baseline Metrics | Lower the Metric_Att_R2, better the methodology |
+        | Goals_Accuracy | Checks the relation b/w Actuals vs Simulated Goals | Higher the Goals vs Actuals correlation, better the methodology |
         """,unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("<h2 style='text-align: center;'>Result Visualization</h2>", unsafe_allow_html=True)

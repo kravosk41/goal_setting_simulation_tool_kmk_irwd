@@ -82,7 +82,7 @@ st.markdown(
     f"<h5 style='text-align: center;'>Simulation Period : {ss.QTR}'{str(ss.YEAR)[-2:]}</h5>", 
     unsafe_allow_html=True
 )
-with st.expander("Download Template ☝️"):
+with st.expander("Download Input Data Template ☝️"):
     st.write("Enter the number of Weight Metrics you have in your project \
                 followed by the their names, the download button will give you a blank excel to populate your data in !")
 
@@ -149,14 +149,16 @@ if ss.ex_up:
             'Total Number of Terrs',
             f"{ss.QTR}'{str(ss.YEAR)[-2:]} National Goal",
             'Sum of Actuals',
-            'Metrics Received'
+            'Metrics Received',
+            'Attainment'
         ] + metrics
 
         value = [
             len(data['Territory_Number'].unique()),
             f"{nation_goal_value:,.2f}",
             f"{data['Actuals'].sum():,.2f}",
-            f"{list_of_metrics}"
+            f"{list_of_metrics}",
+            f"{(data['Actuals'].sum()/nation_goal_value)*100:.2f}%"
         ] + values
 
         st.dataframe(data = {'Statistic' : statistic,'Value' : value},width=500)
