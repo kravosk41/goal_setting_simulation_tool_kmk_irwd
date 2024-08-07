@@ -1,0 +1,11 @@
+# Ignore Excel files
+*.xlsx
+
+# Ignore Jupyter Notebook files
+*.ipynb
+
+# Ignore virtual environment folder
+.venv/
+
+# Ignore raw data folder
+raw_data/
