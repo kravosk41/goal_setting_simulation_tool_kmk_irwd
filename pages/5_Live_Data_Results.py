@@ -2,6 +2,7 @@ import streamlit as st
 from streamlit import session_state as ss
 import pandas as pd
 import plotly.express as px
+import numpy as np
 
 st.set_page_config(
     page_title="Live Data Results",
@@ -34,7 +35,6 @@ def add_logo():
     )
 
 add_logo()
-
 #   #   #   #   #   #   #   #
 # Session State Management - 
 if 'cw_inputs' not in ss:
@@ -42,6 +42,16 @@ if 'cw_inputs' not in ss:
 
 if 'gr_metric' not in ss:
     ss['gr_metric'] = ss['list_of_metrics'][0]
+
+if 'sel_method' not in ss:
+    ss['sel_method'] = 'M1'
+
+if 'first_load_flag' not in ss:
+    ss['first_load_flag'] = 0
+
+if 'update_table' not in ss:
+    ss['update_table'] = None
+
 #   #   #   #   #   #   #   #
 
 #1. Objective : To get back metrics for a combination of weights
@@ -70,6 +80,59 @@ def objective(*metric_weights):
     work_df = work_df[['Territory_Number',f'gr_ex_{method_name}',f'Final_Quota_{method_name}']]
     
     return(work_df)
+#2. Objective_secondary: To get back weight , expected growth rate , goals
+def objective_secondary(*metric_weights):
+    metric_weights = list(metric_weights)
+    method_name = metric_weights[-1]
+    metric_weights.pop(-1)
+    comp_weights = {}
+    #populating comp_weights -
+    for weight_name,weight_value in zip(ss['list_of_metrics'],metric_weights):
+        comp_weights[weight_name] = weight_value
+    
+    #populating comp_volumes -
+    comp_vols = {}
+    for x,y in comp_weights.items():
+        comp_vols[x] = nation_goal_value * y
+
+    work_df = data.copy() # This is in RAM for this page.
+    computation_cols = ss['list_of_metrics']
+    for col in computation_cols:
+        work_df[str(col+'_w')] = (work_df[col] / work_df[col].sum()) * comp_vols[col]
+    
+    work_df[f'Final_Quota_{method_name}'] = sum(work_df[col + '_w'] for col in computation_cols)
+    # growth expectation number : 
+    work_df[f'gr_ex_{method_name}'] = work_df[f'Final_Quota_{method_name}'] / work_df[ss['gr_metric']] # source from radio
+    work_df = work_df[['Territory_Number',ss['gr_metric'],f'Final_Quota_{method_name}',f'gr_ex_{method_name}']]
+    
+    return(work_df)
+#3. To Create Base Dataset for Flooring and Capping
+def floor_cap_default():
+    # Preparing New DataFrame from 'data'
+    data2 = objective_secondary(*test_combs[test_combs['method_num']==ss['sel_method']].loc[0])
+    data2['rcf'] = False #Releif Cap Flag
+    data2['rc_prc'] = data2[data2.columns[3]] #Relief Cap Percentage
+    data2['dgac'] = data2[data2.columns[1]] * data2[data2.columns[5]] #desired goal after capping
+    data2['egac'] = data2[data2.columns[2]] - data2[data2.columns[6]] #excess goal after capping
+    excluding_sum = data2.loc[data2['rcf'] == False, data2.columns[2]].sum()
+    data2['rlgnct'] = np.where(data2['rcf'], 0, data2[data2.columns[2]] / excluding_sum) #redistribute left goals to non capped terrs
+    #goal adjustment to non capped terrs
+    data2['ganct'] = data2['egac'].sum() * data2['rlgnct']
+    data2['rag'] = data2['dgac'] + data2['rlgnct']
+
+    return(data2)
+#4 ---
+def floor_cap_recalc(df):
+    df['dgac'] = df[df.columns[1]] * df[df.columns[5]] #desired goal after capping
+    df['dgac'] = df[df.columns[1]] * df[df.columns[5]] #desired goal after capping
+    df['egac'] = df[df.columns[2]] - df[df.columns[6]] #excess goal after capping
+    excluding_sum = df.loc[df['rcf'] == False, df.columns[2]].sum()
+    df['rlgnct'] = np.where(df['rcf'], 0, df[df.columns[2]] / excluding_sum) #redistribute left goals to non capped terrs
+    #goal adjustment to non capped terrs
+    df['ganct'] = df['egac'].sum() * df['rlgnct']
+    df['rag'] = df['dgac'] + df['rlgnct']
+    return(df)
+
 
 st.markdown(
     "<h1 style='text-align: center;'>Results</h1>", 
@@ -191,7 +254,46 @@ else:
     st.markdown('---')
     ###
 
+    st.markdown(
+        "<h1 style='text-align: center;'>Flooring & Capping</h1>", 
+        unsafe_allow_html=True
+    )
 
+    st.markdown('---')
+    ###
+    # Method  Picker
+    c4,c5,c6 = st.columns([1,1,1])
+    sel_method = c5.radio(
+        'Pick The Method That you want to work with :  - ',
+        list(test_combs['method_num'].unique()),
+        horizontal=True,          
+    )
+    # Push to session state :
+    ss['sel_method'] = sel_method
+
+    ###
+    if ss['first_load_flag'] == 0:
+        data2 = floor_cap_default()
+    else:
+        data2 = floor_cap_recalc(ss['update_table'])       
+    
+    cols_to_disable = list(data2.columns)
+    cols_to_disable.pop(4)
+    cols_to_disable.pop(4)
+    
+    inp_data2 = st.data_editor(
+        data2,height = 450,
+        disabled = [*cols_to_disable],
+        use_container_width=True,
+    )
+    ###
+    c7,c8 = st.columns([1,1])
+    if c7.button('Update Table'):
+        ss['update_table'] = inp_data2
+        ss['first_load_flag'] = 1
+    
+    if c8.button('Reset Table'):
+        ss['first_load_flag'] = 0
 
 
 
