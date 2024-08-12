@@ -46,11 +46,14 @@ if 'gr_metric' not in ss:
 if 'sel_method' not in ss:
     ss['sel_method'] = 'M1'
 
-if 'first_load_flag' not in ss:
-    ss['first_load_flag'] = 0
+if 'min_cap' not in ss:
+    ss['min_cap'] = None
 
-if 'update_table' not in ss:
-    ss['update_table'] = None
+if 'max_cap' not in ss:
+    ss['max_cap'] = None
+
+if 'fnc_process_flag' not in ss:
+    ss.fnc_process_flag = False
 
 #   #   #   #   #   #   #   #
 
@@ -76,7 +79,7 @@ def objective(*metric_weights):
     
     work_df[f'Final_Quota_{method_name}'] = sum(work_df[col + '_w'] for col in computation_cols)
     # growth expectation number : 
-    work_df[f'gr_ex_{method_name}'] = work_df[f'Final_Quota_{method_name}'] / work_df[ss['gr_metric']] # source from radio
+    work_df[f'gr_ex_{method_name}'] = (work_df[f'Final_Quota_{method_name}'] / work_df[ss['gr_metric']]) - 1 # source from radio
     work_df = work_df[['Territory_Number',f'gr_ex_{method_name}',f'Final_Quota_{method_name}']]
     
     return(work_df)
@@ -100,39 +103,54 @@ def objective_secondary(*metric_weights):
     for col in computation_cols:
         work_df[str(col+'_w')] = (work_df[col] / work_df[col].sum()) * comp_vols[col]
     
-    work_df[f'Final_Quota_{method_name}'] = sum(work_df[col + '_w'] for col in computation_cols)
+    work_df[f'Final_Quota'] = sum(work_df[col + '_w'] for col in computation_cols)
     # growth expectation number : 
-    work_df[f'gr_ex_{method_name}'] = work_df[f'Final_Quota_{method_name}'] / work_df[ss['gr_metric']] # source from radio
-    work_df = work_df[['Territory_Number',ss['gr_metric'],f'Final_Quota_{method_name}',f'gr_ex_{method_name}']]
+    work_df[f'gr_ex'] = (work_df[f'Final_Quota'] / work_df[ss['gr_metric']])#.round(3)  # source from radio
+    work_df = work_df[['Territory_Number',ss['gr_metric'],f'Final_Quota',f'gr_ex']]
     
     return(work_df)
-#3. To Create Base Dataset for Flooring and Capping
-def floor_cap_default():
-    # Preparing New DataFrame from 'data'
-    data2 = objective_secondary(*test_combs[test_combs['method_num']==ss['sel_method']].loc[0])
-    data2['rcf'] = False #Releif Cap Flag
-    data2['rc_prc'] = data2[data2.columns[3]] #Relief Cap Percentage
-    data2['dgac'] = data2[data2.columns[1]] * data2[data2.columns[5]] #desired goal after capping
-    data2['egac'] = data2[data2.columns[2]] - data2[data2.columns[6]] #excess goal after capping
-    excluding_sum = data2.loc[data2['rcf'] == False, data2.columns[2]].sum()
-    data2['rlgnct'] = np.where(data2['rcf'], 0, data2[data2.columns[2]] / excluding_sum) #redistribute left goals to non capped terrs
-    #goal adjustment to non capped terrs
-    data2['ganct'] = data2['egac'].sum() * data2['rlgnct']
-    data2['rag'] = data2['dgac'] + data2['rlgnct']
+#3. Gets base columns for flooring and capping calcuations - 
+def get_fnc_columns(df):
+    # create a new column with the adjusted 
+    df['flag'] = (df['gr_ex'] > ss['max_cap']) | (df['gr_ex'] < ss['min_cap'])
+    excluding_sum = df.loc[df['flag'] == False, 'Final_Quota'].sum()
+    df['releif_cap_prc'] = df['gr_ex'].clip(lower=ss['min_cap'], upper=ss['max_cap'])
+    df['desired_goal_after_capping'] = df[ss['gr_metric']] * df['releif_cap_prc']
+    df['excess_goal_after_capping'] = df['Final_Quota'] - df['desired_goal_after_capping']
+    df['rlgnct'] = np.where(df['flag'], 0, (df['Final_Quota'] / excluding_sum)) #redistribute left goals to non capped terrs
+    df['ganct'] = df['excess_goal_after_capping'].sum() * df['rlgnct']
+    df['rag'] = df['desired_goal_after_capping'] + df['ganct']
 
-    return(data2)
-#4 ---
-def floor_cap_recalc(df):
-    df['dgac'] = df[df.columns[1]] * df[df.columns[5]] #desired goal after capping
-    df['dgac'] = df[df.columns[1]] * df[df.columns[5]] #desired goal after capping
-    df['egac'] = df[df.columns[2]] - df[df.columns[6]] #excess goal after capping
-    excluding_sum = df.loc[df['rcf'] == False, df.columns[2]].sum()
-    df['rlgnct'] = np.where(df['rcf'], 0, df[df.columns[2]] / excluding_sum) #redistribute left goals to non capped terrs
-    #goal adjustment to non capped terrs
-    df['ganct'] = df['egac'].sum() * df['rlgnct']
-    df['rag'] = df['dgac'] + df['rlgnct']
-    return(df)
+    return (df)
+#4. Master Function for flooring and Capping - 
+def fnc_loop_util():
+    args = test_combs[test_combs['method_num']==ss['sel_method']].iloc[0]
+    fnc_base = objective_secondary(*args)
+    fnc_base['gr_orig'] = fnc_base['gr_ex']
+    data2 = get_fnc_columns(fnc_base.copy())
+    ### LOOP ENDING THEORY - 
+    data2['gr_ex_test'] = data2['rag'] / data2[ss['gr_metric']]
+    data2['flag_test'] = (data2['gr_ex_test'] > max_cap) | (data2['gr_ex_test'] < ss['min_cap'])
 
+    # if true then copy over the new growth_expectations -
+    if data2[data2['flag_test']==True].shape[0] == 0 :
+        return(data2,1)
+    else:
+        counter = 1
+        while (True):
+
+            if counter > 1000: # This affects performance
+                return(data2,counter)
+
+            fnc_base['gr_ex'] = data2['gr_ex_test'].copy()
+            del data2
+            data2 = get_fnc_columns(fnc_base.copy())
+            data2['gr_ex_test'] = data2['rag'] / data2[ss['gr_metric']]
+            data2['flag_test'] = (data2['gr_ex_test'] > ss['max_cap']) | (data2['gr_ex_test'] < ss['min_cap'])
+            if data2[data2['flag_test']==True].shape[0] == 0 :
+                return(data2,counter)
+            else:
+                counter += 1
 
 st.markdown(
     "<h1 style='text-align: center;'>Results</h1>", 
@@ -203,6 +221,16 @@ else:
 
     ###
 
+    # Method  Picker
+    c4,c5,c6 = st.columns([1,1,1])
+    sel_method = c5.radio(
+        'Pick The Method That you want to work with (for flooring and capping):  - ',
+        list(test_combs['method_num'].unique()),
+        horizontal=True,          
+    )
+    # Push to session state : -> Tie this to a button press instead ?
+    ss['sel_method'] = sel_method
+
     ###
     # Function Call - 
     result_df = pd.DataFrame()
@@ -253,57 +281,37 @@ else:
     st.plotly_chart(fig,use_container_width=True)
     st.markdown('---')
     ###
-
+    
+    # Flooring & Capping Section -
     st.markdown(
         "<h1 style='text-align: center;'>Flooring & Capping</h1>", 
         unsafe_allow_html=True
     )
 
     st.markdown('---')
-    ###
-    # Method  Picker
-    c4,c5,c6 = st.columns([1,1,1])
-    sel_method = c5.radio(
-        'Pick The Method That you want to work with :  - ',
-        list(test_combs['method_num'].unique()),
-        horizontal=True,          
-    )
-    # Push to session state :
-    ss['sel_method'] = sel_method
 
-    ###
-    if ss['first_load_flag'] == 0:
-        data2 = floor_cap_default()
-    else:
-        data2 = floor_cap_recalc(ss['update_table'])       
+    max_cap = st.number_input('Enter Max Cap')/ 100
+    min_cap = st.number_input('Enter Min Cap')/ 100
+
+    if st.button('Process Data - FNC'):
+        if max_cap == 0.0:
+            max_cap = None
+        if min_cap == 0.0:
+            min_cap = None
+        
+        #Push to SS
+        ss['max_cap'] = max_cap
+        ss['min_cap'] = min_cap
+        
+        ss.fnc_process_flag = True
     
-    cols_to_disable = list(data2.columns)
-    cols_to_disable.pop(4)
-    cols_to_disable.pop(4)
-    
-    inp_data2 = st.data_editor(
-        data2,height = 450,
-        disabled = [*cols_to_disable],
-        use_container_width=True,
-    )
+    if ss.fnc_process_flag:
+        results,counter = fnc_loop_util() # function call
+        final = results[['Territory_Number',ss['gr_metric'],'rag','gr_ex_test','flag_test']]
+        st.text('Results - FULL TABLE ')
+        st.dataframe(results)
+        st.text('Final table - Reduced ')
+        st.dataframe(final)
+        st.write('Number of Territories With growth rate not fitting :',results[results['flag_test']==True].shape[0])
+        st.write('Number of Loops Taken : ', counter)
     ###
-    c7,c8 = st.columns([1,1])
-    if c7.button('Update Table'):
-        ss['update_table'] = inp_data2
-        ss['first_load_flag'] = 1
-    
-    if c8.button('Reset Table'):
-        ss['first_load_flag'] = 0
-
-
-
-
-
-
-
-
-
-
-
-
-
