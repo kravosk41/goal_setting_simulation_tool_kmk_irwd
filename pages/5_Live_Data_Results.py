@@ -290,10 +290,16 @@ else:
 
     st.markdown('---')
 
-    max_cap = st.number_input('Enter Max Cap')/ 100
-    min_cap = st.number_input('Enter Min Cap')/ 100
+    c7,c8,c9,c10 = st.columns(4)
+    max_cap = c8.number_input('Enter Max Cap')/ 100
+    min_cap = c9.number_input('Enter Min Cap')/ 100
 
-    if st.button('Process Data - FNC'):
+    if (max_cap != ss['max_cap']) | (min_cap != ss['min_cap']):
+        ss.fnc_process_flag = False
+
+    c10.write('')
+    c10.write('')
+    if c10.button('Process Data - FNC'):
         if max_cap == 0.0:
             max_cap = None
         if min_cap == 0.0:
