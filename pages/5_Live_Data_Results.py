@@ -43,47 +43,22 @@ if 'cw_inputs' not in ss:
 if 'gr_metric' not in ss:
     ss['gr_metric'] = ss['list_of_metrics'][0]
 
-if 'sel_method' not in ss:
-    ss['sel_method'] = 'M1'
-
 if 'min_cap' not in ss:
     ss['min_cap'] = None
 
 if 'max_cap' not in ss:
     ss['max_cap'] = None
 
+if 'vol_adj' not in ss:
+    ss['vol_adj'] = None
+
 if 'fnc_process_flag' not in ss:
     ss.fnc_process_flag = False
 
 #   #   #   #   #   #   #   #
-
-#1. Objective : To get back metrics for a combination of weights
-def objective(*metric_weights):
-    metric_weights = list(metric_weights)
-    method_name = metric_weights[-1]
-    metric_weights.pop(-1)
-    comp_weights = {}
-    #populating comp_weights -
-    for weight_name,weight_value in zip(ss['list_of_metrics'],metric_weights):
-        comp_weights[weight_name] = weight_value
-    
-    #populating comp_volumes -
-    comp_vols = {}
-    for x,y in comp_weights.items():
-        comp_vols[x] = nation_goal_value * y
-
-    work_df = data.copy() # This is in RAM for this page.
-    computation_cols = ss['list_of_metrics']
-    for col in computation_cols:
-        work_df[str(col+'_w')] = (work_df[col] / work_df[col].sum()) * comp_vols[col]
-    
-    work_df[f'Final_Quota_{method_name}'] = sum(work_df[col + '_w'] for col in computation_cols)
-    # growth expectation number : 
-    work_df[f'gr_ex_{method_name}'] = (work_df[f'Final_Quota_{method_name}'] / work_df[ss['gr_metric']]) - 1 # source from radio
-    work_df = work_df[['Territory_Number',f'gr_ex_{method_name}',f'Final_Quota_{method_name}']]
-    
-    return(work_df)
+# FUNCTION LIBRARY - #
 #2. Objective_secondary: To get back weight , expected growth rate , goals
+# Also Handles Volume Adjustment - 
 def objective_secondary(*metric_weights):
     metric_weights = list(metric_weights)
     method_name = metric_weights[-1]
@@ -104,17 +79,22 @@ def objective_secondary(*metric_weights):
         work_df[str(col+'_w')] = (work_df[col] / work_df[col].sum()) * comp_vols[col]
     
     work_df[f'Final_Quota'] = sum(work_df[col + '_w'] for col in computation_cols)
+
+    # Volume Adjustment - 
+    vol_adj = ss['vol_adj'] or 0
+    work_df['Final_Quota'] = (((work_df['Final_Quota'].mean()) - work_df['Final_Quota']) * vol_adj) + work_df['Final_Quota']
+
     # growth expectation number : 
-    work_df[f'gr_ex'] = (work_df[f'Final_Quota'] / work_df[ss['gr_metric']])#.round(3)  # source from radio
+    work_df[f'gr_ex'] = (work_df[f'Final_Quota'] / work_df[ss['gr_metric']]) - 1#.round(3)  # source from radio
     work_df = work_df[['Territory_Number',ss['gr_metric'],f'Final_Quota',f'gr_ex']]
-    
     return(work_df)
+
 #3. Gets base columns for flooring and capping calcuations - 
 def get_fnc_columns(df):
     # create a new column with the adjusted 
     df['flag'] = (df['gr_ex'] > ss['max_cap']) | (df['gr_ex'] < ss['min_cap'])
     excluding_sum = df.loc[df['flag'] == False, 'Final_Quota'].sum()
-    df['releif_cap_prc'] = df['gr_ex'].clip(lower=ss['min_cap'], upper=ss['max_cap'])
+    df['releif_cap_prc'] = (df['gr_ex'].clip(lower=ss['min_cap'], upper=ss['max_cap'])) + 1
     df['desired_goal_after_capping'] = df[ss['gr_metric']] * df['releif_cap_prc']
     df['excess_goal_after_capping'] = df['Final_Quota'] - df['desired_goal_after_capping']
     df['rlgnct'] = np.where(df['flag'], 0, (df['Final_Quota'] / excluding_sum)) #redistribute left goals to non capped terrs
@@ -122,35 +102,80 @@ def get_fnc_columns(df):
     df['rag'] = df['desired_goal_after_capping'] + df['ganct']
 
     return (df)
-#4. Master Function for flooring and Capping - 
-def fnc_loop_util():
-    args = test_combs[test_combs['method_num']==ss['sel_method']].iloc[0]
-    fnc_base = objective_secondary(*args)
-    fnc_base['gr_orig'] = fnc_base['gr_ex']
-    data2 = get_fnc_columns(fnc_base.copy())
-    ### LOOP ENDING THEORY - 
-    data2['gr_ex_test'] = data2['rag'] / data2[ss['gr_metric']]
-    data2['flag_test'] = (data2['gr_ex_test'] > max_cap) | (data2['gr_ex_test'] < ss['min_cap'])
 
-    # if true then copy over the new growth_expectations -
-    if data2[data2['flag_test']==True].shape[0] == 0 :
-        return(data2,1)
+#4. Does flooring and Capping in a loop - used 'get_fnc_columns' as a base function | Returns detailed dataframe 
+def fnc_loop_util(args):
+    # Get Base Data
+    base1 = objective_secondary(*args) # TIE THIS TO FUNCITON INPUT LATER -
+    
+    # Get Base Data + Supporting columns for FNC -> FNC Algo Applied (1) here
+    base2 = get_fnc_columns(base1)
+    # Creating a Copy of Original Growth Expectation for Debugging as algo is likely to run multiple times:
+    base2['gr_orig'] = base2['gr_ex']
+
+    # Before Loop Starts Checking for Validity of new goals - 
+    base2['gr_ex_test'] = (base2['rag'] / base2[ss['gr_metric']]) -1
+    base2['flag_test'] = (base2['gr_ex_test'] > ss['max_cap']) | (base2['gr_ex_test'] < ss['min_cap'])
+
+    #Checking -
+    if base2[base2['flag_test']==True].shape[0] == 0:
+        return(base2)
     else:
         counter = 1
-        while (True):
-
-            if counter > 1000: # This affects performance
-                return(data2,counter)
-
-            fnc_base['gr_ex'] = data2['gr_ex_test'].copy()
-            del data2
-            data2 = get_fnc_columns(fnc_base.copy())
-            data2['gr_ex_test'] = data2['rag'] / data2[ss['gr_metric']]
-            data2['flag_test'] = (data2['gr_ex_test'] > ss['max_cap']) | (data2['gr_ex_test'] < ss['min_cap'])
-            if data2[data2['flag_test']==True].shape[0] == 0 :
-                return(data2,counter)
+        while(True):
+            if counter >= 30:
+                return(base2)
             else:
-                counter += 1
+                base2['gr_ex'] = base2['gr_ex_test'].copy() # copying over the new growth rate expectations from the previous loop.
+                base2 = get_fnc_columns(base2)
+                base2['gr_ex_test'] = (base2['rag'] / base2[ss['gr_metric']]) -1
+                base2['flag_test'] = (base2['gr_ex_test'] > ss['max_cap']) | (base2['gr_ex_test'] < ss['min_cap'])
+                if base2[base2['flag_test']==True].shape[0] == 0:
+                    return(base2)
+                else:
+                    counter += 1
+
+#5. Util Function : Assits in Generating Values for all available Methods and concatinating them :
+def util_5():
+    for i in range(len(test_combs)):
+        method_name = test_combs.loc[i]['method_num']
+        df = fnc_loop_util(test_combs.loc[i])
+        df = df[['Territory_Number','rag','gr_ex_test']]
+        df.columns = ['Territory_Number',f'Final_Quota_{method_name}',f'gr_ex_{method_name}']
+
+        if i == 0:
+            result_df = df
+        else : 
+            result_df = pd.merge(result_df,df,on='Territory_Number',how='left')
+        
+    return(result_df)
+
+#6. To Summarize Result DF - Util Function 
+def util_6(df):
+    # Drop the 'Territory_Number' column as it's not needed for the calculations
+    df_numeric = df.drop('Territory_Number', axis=1)
+
+    # Calculate MIN, MAX, and AVG for each column
+    min_row = df_numeric.min().to_frame().T
+    max_row = df_numeric.max().to_frame().T
+    avg_row = df_numeric.mean().to_frame().T
+
+
+    # Add the stat labels
+    min_row['stat'] = 'MIN'
+    max_row['stat'] = 'MAX'
+    avg_row['stat'] = 'AVG'
+
+
+
+    # Append the calculated rows to the original DataFrame
+    df_result = pd.concat([df, min_row, max_row, avg_row], ignore_index=True)
+    df_result = df_result[~df_result['stat'].isnull()]
+    df_result = df_result[['stat'] + list(df_result.columns[1:-1])]
+    return(df_result)
+
+
+#   #   #   #   #   #   #   #
 
 st.markdown(
     "<h1 style='text-align: center;'>Results</h1>", 
@@ -208,116 +233,113 @@ else:
         )
     st.subheader('Methods to be Tested - ')
     st.dataframe(test_combs,use_container_width=True,hide_index=True,column_config={'method_num':'Methodology'})
+    st.markdown('---')
     ###
 
     ###
+    # UI AND BUTTON - #
+    
     # Growth Rate Formula Picker
-    c1,c2,c3 = st.columns([1,1,1])
-    gr_metric = c2.radio('Pick a  Metric for growth rate calculation - ',ss['list_of_metrics'],horizontal=True,
+    c1,c2,c3,c4,c5 = st.columns(5)
+    gr_metric = c1.radio('Pick a  Metric for growth rate calculation - ',ss['list_of_metrics'],horizontal=True,
                          index = ss['list_of_metrics'].index(ss['gr_metric'])
     )
-    # Push to session state :
-    ss['gr_metric'] = gr_metric
 
-    ###
-
-    # Method  Picker
-    c4,c5,c6 = st.columns([1,1,1])
-    sel_method = c5.radio(
-        'Pick The Method That you want to work with (for flooring and capping):  - ',
-        list(test_combs['method_num'].unique()),
-        horizontal=True,          
-    )
-    # Push to session state : -> Tie this to a button press instead ?
-    ss['sel_method'] = sel_method
-
-    ###
-    # Function Call - 
-    result_df = pd.DataFrame()
-    for i in range(len(test_combs)):
-        df = objective(*test_combs.loc[i])
-
-        if i == 0:
-            result_df = df
-        else : 
-            result_df = pd.merge(result_df,df,on='Territory_Number',how='left')
-    # Reducing Table to render graph - 
-    graph_df = result_df[
-        ['Territory_Number']+[f'gr_ex_{i}' for i in test_combs['method_num'].unique()]
-    ]
-    st.subheader('Territory Level Goals - ')
-    st.dataframe(result_df,use_container_width=True,hide_index=True)
-    ###
-
-    #### Graph 2 ####
-    st.markdown('---')
-    gr_cols = [col for col in graph_df.columns if col.startswith('gr_ex')]
-    graph_df2 = graph_df[gr_cols].copy()
-    for col in graph_df2:
-        graph_df2[col] = graph_df2[col].sort_values(ignore_index=True)
-    graph_df2 = graph_df2.reset_index(drop=True)
-    fig = px.line(graph_df2, x=graph_df2.index, y=gr_cols, title='Sorted Growth Expectation Rate Growth Expectation Ratest')
-    fig.update_layout(
-    xaxis_title='',yaxis_title='Growth Expectation',
-    xaxis=dict(showticklabels=False)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    ###
-
-    ###
-    # Graph 1 Creation -
-    st.markdown('---')
-    fig = px.line(
-        graph_df, 
-        x='Territory_Number', 
-        y=graph_df.columns[1:],
-        labels={'value': 'Growth Expectation', 'variable': 'Methodology'}
-    )
-    fig.update_layout(
-        title='Growth Expectation | Method Comparisons',
-        xaxis_title='',yaxis_title='Growth Expectation',
-        xaxis=dict(showticklabels=False)
-    )
-    st.plotly_chart(fig,use_container_width=True)
-    st.markdown('---')
-    ###
-    
-    # Flooring & Capping Section -
-    st.markdown(
-        "<h1 style='text-align: center;'>Flooring & Capping</h1>", 
-        unsafe_allow_html=True
-    )
-
+    max_cap = c2.number_input('Enter Max Cap %')/ 100
+    min_cap = c3.number_input('Enter Min Cap %')/ 100
+    vol_adj = c4.number_input('Enter Volume Adjustment %') / 100
     st.markdown('---')
 
-    c7,c8,c9,c10 = st.columns(4)
-    max_cap = c8.number_input('Enter Max Cap')/ 100
-    min_cap = c9.number_input('Enter Min Cap')/ 100
-
-    if (max_cap != ss['max_cap']) | (min_cap != ss['min_cap']):
+    if (max_cap != ss['max_cap']) | (min_cap != ss['min_cap']) | (vol_adj != ss['min_cap']):
         ss.fnc_process_flag = False
 
-    c10.write('')
-    c10.write('')
-    if c10.button('Process Data - FNC'):
-        if max_cap == 0.0:
-            max_cap = None
-        if min_cap == 0.0:
-            min_cap = None
-        
-        #Push to SS
+    c5.write('')
+    c5.write('')
+    if c5.button('PROCESS',use_container_width=True):
+
+        max_cap = None if max_cap == 0.0 else max_cap
+        min_cap = None if min_cap == 0.0 else min_cap
+        vol_adj = None if vol_adj == 0.0 else vol_adj
+
+        # Push to SS :
+        ss['gr_metric'] = gr_metric
         ss['max_cap'] = max_cap
         ss['min_cap'] = min_cap
-        
+        ss['vol_adj'] = vol_adj
+
         ss.fnc_process_flag = True
     
     if ss.fnc_process_flag:
-        results,counter = fnc_loop_util() # function call
-        final = results[['Territory_Number',ss['gr_metric'],'rag','gr_ex_test','flag_test']]
-        st.text('Results - FULL TABLE ')
-        st.dataframe(results)
-        st.text('Final table - Reduced ')
-        st.dataframe(final)
-        st.write('Number of Territories With growth rate not fitting :',results[results['flag_test']==True].shape[0])
-        st.write('Number of Loops Taken : ', counter)
-    ###
+        # Function Call - 
+        c6,c7 = st.columns(2)
+        result_df = util_5()
+        result_summary_df = util_6(result_df)
+
+        # For highlighting outliers - 
+        HL_cols = [f'gr_ex_{i}' for i in test_combs['method_num'].unique()]
+        def highlight_sales(val):
+            max_cap = ss['max_cap'] or 0
+            min_cap = ss['min_cap'] or 0
+
+            if (max_cap + min_cap == 0):
+                return ''
+            if val > max_cap or val < min_cap:
+                return 'background-color: yellow'  # Highlight in yellow
+            return ''
+        
+        # Apply the highlight to the specified columns in check_condition_list
+        STYL_result_df = result_df.style.applymap(lambda x: highlight_sales(x) if pd.notnull(x) else '', subset=HL_cols)
+
+
+        st.subheader('Territory Level Goals - ')
+        st.markdown('---')
+        st.dataframe(
+            result_summary_df
+            ,use_container_width=True,hide_index=True,
+            column_config={
+                'stat':st.column_config.Column(width='medium')
+            }
+        )
+        st.dataframe(
+            STYL_result_df,use_container_width=True,hide_index=True,
+            column_config={
+                'Territory_Number':st.column_config.Column(width='medium')
+            }
+        )
+        st.markdown('---')
+        # Reducing Table to render graph - 
+        graph_df = result_df[
+            ['Territory_Number']+[f'gr_ex_{i}' for i in test_combs['method_num'].unique()]
+        ]
+        graph_df['nat'] = (nation_goal_value/data[ss['gr_metric']].sum())-1
+
+        ###
+        # Graph 1 -#
+        gr_cols = [col for col in graph_df.columns if col.startswith('gr_ex')] + ['nat']
+        graph_df2 = graph_df[gr_cols].copy()
+        for col in graph_df2:
+            graph_df2[col] = graph_df2[col].sort_values(ignore_index=True)
+        graph_df2 = graph_df2.reset_index(drop=True)
+        fig = px.line(graph_df2, x=graph_df2.index, y=gr_cols, title='Sorted Growth Expectation Rate')
+        fig.update_layout(
+        xaxis_title='',yaxis_title='Growth Expectation',
+        xaxis=dict(showticklabels=False)
+        )
+        c6.plotly_chart(fig, use_container_width=True)
+        
+        ###
+        # Graph 2 Creation -
+    
+        fig = px.line(
+            graph_df, 
+            x='Territory_Number', 
+            y=graph_df.columns[1:],
+            labels={'value': 'Growth Expectation', 'variable': 'Methodology'}
+        )
+        fig.update_layout(
+            title='Growth Expectation | Method Comparisons',
+            xaxis_title='',yaxis_title='Growth Expectation',
+            xaxis=dict(showticklabels=False)
+        )
+        c7.plotly_chart(fig,use_container_width=True)
+        ###
