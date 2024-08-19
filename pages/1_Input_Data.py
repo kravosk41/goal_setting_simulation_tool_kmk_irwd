@@ -70,7 +70,7 @@ if "number_of_metrics" not in ss:
 st.markdown("<h1 style='text-align: center;'>Goal Setting Simulation Tool</h1>", unsafe_allow_html=True)
 st.markdown('---')
 c4,c5 = st.columns(2)
-c4.markdown("<h4 style='text-align: left;'>Number of Quarters to test on - </h4>",unsafe_allow_html=True)
+c4.markdown("<h4 style='text-align: left;'>Number of Data Periods to test on - </h4>",unsafe_allow_html=True)
 ss.MODE = c5.selectbox(label='num_qtrs',options=[1,2],key='MODE_v',index=[1,2].index(ss.MODE),label_visibility='collapsed')
 st.markdown('---')
 st.markdown("<h4 style='text-align: left;'>Select the Goal Setting Simulation Model Time Period</h4>",unsafe_allow_html=True)
@@ -247,7 +247,7 @@ if ss.ex_up:
             ss['nation_goal_value2'] = nation_goal_value2
             ss['excel_file_df2'] = data2
         st.write(f"Submited Data ! | Metrics :{ss['list_of_metrics']} | Count :{ss['number_of_metrics']}") #print ss vars or local vars ?
-        st.switch_page('pages/2_Adding_Metrics.py')
+        st.switch_page('pages/2_Simulation_Metrics.py')
 
 
 #https://stackoverflow.com/questions/73251012/put-logo-and-title-above-on-top-of-page-navigation-in-sidebar-of-streamlit-multi

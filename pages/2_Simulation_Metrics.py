@@ -64,7 +64,7 @@ if 'pro_com' not in ss: #tracks if results were done processing or not
     ss.pro_com = False
 #   #   #   #   #   #   #   #
 
-st.markdown("<h1 style='text-align: center;'>Goal Setting Weight Ranges</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center;'>Goal Setting Simulation Weight Ranges</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: left;'>Please Enter Minimum , Maximum and Increment values for your weights \
             that you would like to test in your exercise</h4>",unsafe_allow_html=True)
 st.write("Please Make Sure to pick ranges judicously!")
@@ -77,8 +77,8 @@ if ss.ex_up and ss.list_of_metrics:
         g1,g2,g3 = st.columns([1,5,1])
         with g2:
             #add graph here -
-            metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'],horizontal=True)
-            metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'],horizontal=True,index=1)
+            metr_sel_1 = st.radio('Pick First Metric (a)',ss['list_of_metrics'],horizontal=True)
+            metr_sel_2 = st.radio('Pick Second Metric (a)',ss['list_of_metrics'],horizontal=True,index=1)
 
             #graph number 2- 
             fig  = px.scatter(
@@ -100,8 +100,8 @@ if ss.ex_up and ss.list_of_metrics:
         g1,g2,g3,g4 = st.columns([1,4,4,1])
         with g2:
             #add graph here -
-            metr_sel_1 = st.radio('Pick a First Metric',ss['list_of_metrics'],horizontal=True)
-            metr_sel_2 = st.radio('Pick a Second Metric',ss['list_of_metrics'],horizontal=True,index=1)
+            metr_sel_1 = st.radio('Pick First Metric (a)',ss['list_of_metrics'],horizontal=True)
+            metr_sel_2 = st.radio('Pick First Metric (a)',ss['list_of_metrics'],horizontal=True,index=1)
 
             #graph number 2- 
             fig  = px.scatter(
@@ -121,8 +121,8 @@ if ss.ex_up and ss.list_of_metrics:
             st.plotly_chart(fig,use_container_width=True)
         with g3:
             #add graph here -
-            metr_sel_12 = st.radio('Pick a First Metric2',ss['list_of_metrics'],horizontal=True)
-            metr_sel_22 = st.radio('Pick a Second Metric2',ss['list_of_metrics'],horizontal=True,index=1)
+            metr_sel_12 = st.radio('Pick First Metric (b)',ss['list_of_metrics'],horizontal=True)
+            metr_sel_22 = st.radio('Pick First Metric (b)',ss['list_of_metrics'],horizontal=True,index=1)
 
             #graph number 2- 
             fig2  = px.scatter(
@@ -150,7 +150,7 @@ if ss.ex_up and ss.list_of_metrics:
         corr_res.to_excel(writer, sheet_name='Sheet1',index=False)
         if ss.MODE == 2:
             corr_res2.to_excel(writer, sheet_name='Sheet2',index=False)
-    st.download_button("Download Download Correlation Data",data=buffer,file_name="GST_corr.xlsx",
+    st.download_button("Download Correlation Data",data=buffer,file_name="GST_corr.xlsx",
     help='Click this to get correlation numbers between all metrics [using pd.corr()]',mime="application/vnd.ms-excel")
     st.markdown('---')
 

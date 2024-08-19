@@ -169,7 +169,7 @@ def util_6(df):
 
 
     # Append the calculated rows to the original DataFrame
-    df_result = pd.concat([df, min_row, max_row, avg_row], ignore_index=True)
+    df_result = pd.concat([df, max_row, avg_row, min_row], ignore_index=True)
     df_result = df_result[~df_result['stat'].isnull()]
     df_result = df_result[['stat'] + list(df_result.columns[1:-1])]
     return(df_result)
@@ -214,6 +214,10 @@ else:
         # Creating Datframe row :
         custom_row = {key: value for key, value in zip(ss['list_of_metrics'], ss['cw_inputs'])}
         custom_row['method_num'] = 'C1'
+
+        if sum(ss['cw_inputs']) not in [0,1]:
+            val = sum(ss['cw_inputs']) * 100
+            st.warning(f'Your Weights Dont Add Up to 100% yet!  :  {val}')
     ###
     
     ###
@@ -232,7 +236,14 @@ else:
             pd.DataFrame([custom_row])],ignore_index=True
         )
     st.subheader('Methods to be Tested - ')
-    st.dataframe(test_combs,use_container_width=True,hide_index=True,column_config={'method_num':'Methodology'})
+    # for styling -
+    c_config = {key : st.column_config.NumberColumn(key,format = '%.2f%%') for key in ss['list_of_metrics']}
+    c_config['method_num'] = 'Methodology'
+    test_combs_style = test_combs.copy()
+    for c in ss['list_of_metrics']:
+        test_combs_style[c] = test_combs_style[c]*100
+    st.dataframe(test_combs_style,use_container_width=True,hide_index=True,column_config=c_config)
+    
     st.markdown('---')
     ###
 
@@ -245,8 +256,8 @@ else:
                          index = ss['list_of_metrics'].index(ss['gr_metric'])
     )
 
-    max_cap = c2.number_input('Enter Max Cap %')/ 100
-    min_cap = c3.number_input('Enter Min Cap %')/ 100
+    max_cap = c2.number_input('Enter Cap %')/ 100
+    min_cap = c3.number_input('Enter Floor %')/ 100
     vol_adj = c4.number_input('Enter Volume Adjustment %') / 100
     st.markdown('---')
 
@@ -275,7 +286,7 @@ else:
         result_df = util_5()
         result_summary_df = util_6(result_df)
 
-        # For highlighting outliers - 
+        # For highlighting outliers - THIS WILL HIGHLIGHT STUFF in NEGATIVE GROWTH RATE
         HL_cols = [f'gr_ex_{i}' for i in test_combs['method_num'].unique()]
         def highlight_sales(val):
             max_cap = ss['max_cap'] or 0
@@ -283,12 +294,22 @@ else:
 
             if (max_cap + min_cap == 0):
                 return ''
-            if val > max_cap or val < min_cap:
+            if val > max_cap*100 or val < min_cap*100:
                 return 'background-color: yellow'  # Highlight in yellow
             return ''
+
+        c_config2 = {key : st.column_config.NumberColumn(key,format = '%.3f%%') for key in HL_cols}
+        c_config2['stat'] = st.column_config.Column(width='medium')
+        #For Format Change :
+        result_summary_df[HL_cols] = result_summary_df[HL_cols].apply(lambda x: x * 100)
+        result_df[HL_cols] = result_df[HL_cols].apply(lambda x: x * 100)
         
         # Apply the highlight to the specified columns in check_condition_list
-        STYL_result_df = result_df.style.applymap(lambda x: highlight_sales(x) if pd.notnull(x) else '', subset=HL_cols)
+        #STYL_result_df = result_df.style.applymap(lambda x: highlight_sales(x) if pd.notnull(x) else '', subset=HL_cols)
+        STYL_result_df = (result_df.style
+                        .applymap(lambda x: highlight_sales(x) if pd.notnull(x) else '', subset=HL_cols)
+                        .format({col: '{:.3f}%' for col in HL_cols if pd.api.types.is_numeric_dtype(result_df[col])}))  # Format only numeric columns as percentages
+
 
 
         st.subheader('Territory Level Goals - ')
@@ -296,22 +317,18 @@ else:
         st.dataframe(
             result_summary_df
             ,use_container_width=True,hide_index=True,
-            column_config={
-                'stat':st.column_config.Column(width='medium')
-            }
+            column_config=c_config2
         )
         st.dataframe(
             STYL_result_df,use_container_width=True,hide_index=True,
-            column_config={
-                'Territory_Number':st.column_config.Column(width='medium')
-            }
+            column_config={'Territory_Number':st.column_config.Column(width='medium')}
         )
         st.markdown('---')
         # Reducing Table to render graph - 
         graph_df = result_df[
             ['Territory_Number']+[f'gr_ex_{i}' for i in test_combs['method_num'].unique()]
         ]
-        graph_df['nat'] = (nation_goal_value/data[ss['gr_metric']].sum())-1
+        graph_df['nat'] = ((nation_goal_value/data[ss['gr_metric']].sum())-1)*100
 
         ###
         # Graph 1 -#
@@ -343,3 +360,16 @@ else:
         )
         c7.plotly_chart(fig,use_container_width=True)
         ###
+        # Extra Graphs - 
+        c8,c9 = st.columns(2)
+        fig = px.box(graph_df, y=[f'gr_ex_{i}' for i in test_combs['method_num'].unique()],
+             title="Distribution of Growth Rates by Method")
+        fig.update_layout(xaxis_title = 'Methods',yaxis_title = 'Growth Distribution')
+        c8.plotly_chart(fig)
+        
+        fig = px.bar(graph_df, x='Territory_Number', y=[f'gr_ex_{i}' for i in test_combs['method_num'].unique()],
+                    barmode='group', title="Comparison of Growth Rates by Territory")
+        fig.update_layout(xaxis_title = 'Territory',yaxis_title = 'Growth Rate (%)')
+        c9.plotly_chart(fig,use_container_width=True)
+        ###
+        

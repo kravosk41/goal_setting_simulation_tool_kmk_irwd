@@ -237,9 +237,9 @@ def result(mode,style_df):
         return
 
     if mode == 1:
-        df_head_label = ss.QTR
+        df_head_label = f'{ss.QTR} {ss.YEAR}'
     else:
-        df_head_label = ss.QTR2
+        df_head_label = f'{ss.QTR2} {ss.YEAR2}'
 
     st.markdown(f"<h3 style='text-align: left;'>{df_head_label} -</h3>", unsafe_allow_html=True)
     printer(style_df)
@@ -293,6 +293,9 @@ def input():
     
         # pass to session state - 
         ss['custom_weights_input'] = custom_weights_input
+        if sum(ss['custom_weights_input']) not in [0,1]:
+            val = sum(ss['custom_weights_input']) * 100
+            st.warning(f'Your Weights Dont Add Up to 100% yet!  :  {val}')
 
         #Processing Data 
         data = {ss['list_of_metrics'][i] : ss['custom_weights_input'][i] for i in range(ss['number_of_metrics'])}
@@ -339,7 +342,12 @@ def process_data_vis(mode,n):
 # Data Visualization : Renders all the needed graphs and plots
 #8. TOP N combinations + Custom Combination
 def visuals(mode,n):
-    st.subheader(f"__Top {n} Combinations (Data Source {mode})-__")
+    if mode == 1:
+        label_text = f'{ss.QTR} {ss.YEAR}'
+    elif mode == 2:
+        label_text = f'{ss.QTR2} {ss.YEAR2}'
+    
+    st.subheader(f"__Top {n} Combinations ({label_text})-__")
     col_list = list(ss[f'rankdf{mode}'].columns)
     col_list = [col_list[-1]] + col_list[:-1]
     #for column renaming-
@@ -355,6 +363,10 @@ def visuals(mode,n):
 def visuals2(mode,n):
     if sum(ss['custom_weights_input']) == 1:
         n = n+1
+    if mode == 1:
+        label_text = f'{ss.QTR} {ss.YEAR}'
+    elif mode == 2:
+        label_text = f'{ss.QTR2} {ss.YEAR2}'
 
     df = ss[f'rankdf{mode}'].copy()
     df = df.rename(columns={'CAT_A':'≤ 97%','CAT_B':'97% to 99%','CAT_C':'99% to 101%','CAT_D':'101% to 103%','CAT_E':'> 103%','Total':'97% to 103%'})
@@ -369,7 +381,7 @@ def visuals2(mode,n):
         facet_col_wrap=5, # this will remain 5
         text='Values',
         labels={"Values": "# Territories", "Category": "Category", "Method": "Method"},
-        title=f"Attainment Distribution Chart (Data Source {mode})"
+        title=f"Attainment Distribution Chart ({label_text})"
     )
     fig.update_layout(showlegend=True)
     fig.update_layout(title_font_size=20,title_x=0.45, title_xref='paper')
@@ -380,7 +392,11 @@ def visuals2(mode,n):
 def visuals3(mode,n):
     df = ss[f'rankdf{mode}'].copy()
     st.markdown('---')
-    st.markdown(f"<h3 style='text-align: center;'>Data Source {mode}</h3>", unsafe_allow_html=True)
+    if mode == 1:
+        label_text = f'{ss.QTR} {ss.YEAR}'
+    elif mode == 2:
+        label_text = f'{ss.QTR2} {ss.YEAR2}'
+    st.markdown(f"<h3 style='text-align: center;'>Data Source : {label_text}</h3>", unsafe_allow_html=True)
     split1,split2 = st.columns(2)
     with split1:
         comb_list = list(df['Method'].unique())
@@ -418,7 +434,13 @@ def visuals3(mode,n):
             trendline_color_override = 'orange',
             title='Goal Accuracy'
         )
-        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Simulated Quota')
+        if mode == 1:
+            x_label_text = f"{ss.QTR}'{str(ss.YEAR)[-2:]} Actuals" 
+            y_label_text = f"{ss.QTR}'{str(ss.YEAR)[-2:]} Simulated Quota"
+        elif mode == 2:
+            x_label_text = f"{ss.QTR2}'{str(ss.YEAR2)[-2:]} Actuals"
+            y_label_text = f"{ss.QTR2}'{str(ss.YEAR2)[-2:]} Simulated Quota"
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=x_label_text ,yaxis_title=y_label_text)
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
@@ -460,7 +482,7 @@ def visuals3(mode,n):
             trendline_color_override = 'orange',
             title='Goal Accuracy'
         )
-        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Actuals',yaxis_title=ss.QTR +"'"+ str(ss.YEAR)[-2:] + ' Simulated Quota')
+        fig.update_layout(title_font_size=20,title_x=0.35, title_xref='paper',xaxis_title=x_label_text,yaxis_title=y_label_text)
         # For R Squared - 
         results = px.get_trendline_results(fig)
         r_squared = results.iloc[0]["px_fit_results"].rsquared
