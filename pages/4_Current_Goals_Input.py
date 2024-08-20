@@ -42,17 +42,19 @@ if 'test_up' not in ss:
 #   #   #   #   #   #   #   #
 
 st.markdown(
-    "<h1 style='text-align: center;'>Real Data</h1>", 
+    "<h1 style='text-align: center;'>Current Goals Input</h1>", 
     unsafe_allow_html=True
 )
 
 st.markdown("---")
-st.write("Some Contextual Text Here : ")
+st.subheader("Note -")
 st.markdown(
     """
-    1. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-    2. sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-    3. adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore.
+    1. Upload the actual data in the correct format(Template has been provided on the “Actual Data Input Tab” & make sure to drop the actuals column from that).
+    2. Remember to click "Submit Excel" once the data has been uploaded.
+    3. You can visualize the Final Goals and Growth Expectations in the “Results” tab.
+    4. There is an options to test custom weights for Goal calculation.
+    5. You can perform Volume Adjustment & tweak the Capping and Flooring as per client needs.
     """
 )
 st.markdown("---")
@@ -83,20 +85,23 @@ if ss.test_up:
         st.subheader('Input File Stats - ')
         metrics = [m for m in ss['list_of_metrics']]
         values = [f"{data[m].sum():,.2f}" for m in ss['list_of_metrics']]
+        national_growth_rate = (nation_goal_value / (data[ss['list_of_metrics'][0]].sum())) - 1
         # Create the 'Statistic' and 'Value' lists
         statistic = [
             'Total Number of Terrs',
             f"National Goal",
             'Metrics Received',
+            f"National Growth Rate ({ss['list_of_metrics'][0]})"
         ] + metrics
         value = [
             len(data['Territory_Number'].unique()),
             f"{nation_goal_value:,.2f}",
             f"{ss['list_of_metrics']}",
+            f"{national_growth_rate * 100:,.3f} %"
         ] + values
     
     st.dataframe(data = {'Statistic' : statistic,'Value' : value},width=500)
 
 
     if st.button("Submit Excel"):
-        st.switch_page('pages/5_Live_Data_Results.py')
+        st.switch_page('pages/5_Current_Goals_Results.py')

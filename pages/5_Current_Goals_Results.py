@@ -3,6 +3,8 @@ from streamlit import session_state as ss
 import pandas as pd
 import plotly.express as px
 import numpy as np
+from datetime import datetime
+import io
 
 st.set_page_config(
     page_title="Live Data Results",
@@ -292,11 +294,18 @@ else:
             max_cap = ss['max_cap'] or 0
             min_cap = ss['min_cap'] or 0
 
-            if (max_cap + min_cap == 0):
+            if (max_cap + min_cap == 0): # when user does not enter anything
                 return ''
-            if val > max_cap*100 or val < min_cap*100:
-                return 'background-color: yellow'  # Highlight in yellow
-            return ''
+            if (min_cap == 0) & (max_cap != 0): # For when user does not enter floor
+                if val >max_cap*100 :
+                    return 'background-color: Yellow'  # Highlight in yellow
+                elif val < min_cap*100:
+                    return ''
+            if (min_cap != 0) & (max_cap == 0): # For when user does not enter Ciel
+                if val >max_cap*100 :
+                    return '' 
+                elif val < min_cap*100:
+                    return 'background-color: Yellow'
 
         c_config2 = {key : st.column_config.NumberColumn(key,format = '%.3f%%') for key in HL_cols}
         c_config2['stat'] = st.column_config.Column(width='medium')
@@ -305,12 +314,9 @@ else:
         result_df[HL_cols] = result_df[HL_cols].apply(lambda x: x * 100)
         
         # Apply the highlight to the specified columns in check_condition_list
-        #STYL_result_df = result_df.style.applymap(lambda x: highlight_sales(x) if pd.notnull(x) else '', subset=HL_cols)
         STYL_result_df = (result_df.style
                         .applymap(lambda x: highlight_sales(x) if pd.notnull(x) else '', subset=HL_cols)
                         .format({col: '{:.3f}%' for col in HL_cols if pd.api.types.is_numeric_dtype(result_df[col])}))  # Format only numeric columns as percentages
-
-
 
         st.subheader('Territory Level Goals - ')
         st.markdown('---')
@@ -361,15 +367,30 @@ else:
         c7.plotly_chart(fig,use_container_width=True)
         ###
         # Extra Graphs - 
-        c8,c9 = st.columns(2)
-        fig = px.box(graph_df, y=[f'gr_ex_{i}' for i in test_combs['method_num'].unique()],
-             title="Distribution of Growth Rates by Method")
-        fig.update_layout(xaxis_title = 'Methods',yaxis_title = 'Growth Distribution')
-        c8.plotly_chart(fig)
-        
         fig = px.bar(graph_df, x='Territory_Number', y=[f'gr_ex_{i}' for i in test_combs['method_num'].unique()],
                     barmode='group', title="Comparison of Growth Rates by Territory")
         fig.update_layout(xaxis_title = 'Territory',yaxis_title = 'Growth Rate (%)')
-        c9.plotly_chart(fig,use_container_width=True)
+        st.plotly_chart(fig,use_container_width=True)
+
+        fig = px.box(graph_df, y=[f'gr_ex_{i}' for i in test_combs['method_num'].unique()],
+             title="Distribution of Growth Rates by Method")
+        fig.update_layout(xaxis_title = 'Methods',yaxis_title = 'Growth Distribution')
+        st.plotly_chart(fig,use_container_width=True)
+
+        #Download Data -
+
+        @st.cache_data
+        def convert_df(df):
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                df.to_excel(writer, sheet_name='Sheet1',index=False)    
+            return(buffer)
+        
+        st.download_button(
+            label = 'Download Results',
+            data = convert_df(result_df),
+            file_name = f"GST_Results_{datetime.today().strftime('%Y-%m-%d')}.xlsx",
+            key='download-xlsx',
+        )
         ###
         

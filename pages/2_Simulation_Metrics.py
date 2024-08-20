@@ -101,7 +101,7 @@ if ss.ex_up and ss.list_of_metrics:
         with g2:
             #add graph here -
             metr_sel_1 = st.radio('Pick First Metric (a)',ss['list_of_metrics'],horizontal=True)
-            metr_sel_2 = st.radio('Pick First Metric (a)',ss['list_of_metrics'],horizontal=True,index=1)
+            metr_sel_2 = st.radio('Pick Second Metric (a)',ss['list_of_metrics'],horizontal=True,index=1)
 
             #graph number 2- 
             fig  = px.scatter(
@@ -122,7 +122,7 @@ if ss.ex_up and ss.list_of_metrics:
         with g3:
             #add graph here -
             metr_sel_12 = st.radio('Pick First Metric (b)',ss['list_of_metrics'],horizontal=True)
-            metr_sel_22 = st.radio('Pick First Metric (b)',ss['list_of_metrics'],horizontal=True,index=1)
+            metr_sel_22 = st.radio('Pick Second Metric (b)',ss['list_of_metrics'],horizontal=True,index=1)
 
             #graph number 2- 
             fig2  = px.scatter(
